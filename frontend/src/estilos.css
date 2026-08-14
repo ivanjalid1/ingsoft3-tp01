@@ -1,102 +1,587 @@
+/* =====================================================================
+   Sistema visual "Carmín" (adaptado) — tokens + utilidades en CSS plano.
+   Replica la paleta y las convenciones tipográficas del ERP de referencia
+   (ver .superpowers/sdd/2026-08-13-erp-minimo/estilo-trerp.md) sin agregar
+   ningún framework: son variables CSS + reglas normales, explicables una
+   por una en una defensa oral.
+   ===================================================================== */
+
 :root {
-  font-family: system-ui, sans-serif;
+  /* --- Color: fondo / superficies / bordes --- */
+  --color-bg: #f7f6f4;
+  --color-surface: #ffffff;
+  --color-border: #e5e2dd;
+  --color-border-row: #eeebe6;
+  --color-border-input: #d5d1ca;
+
+  /* --- Color: texto --- */
+  --color-ink: #1c1b1a;
+  --color-muted: #6f6b66;
+  --color-disabled: #b5b0a8;
+
+  /* --- Color: acento (carmín) --- */
+  --color-primary: #c81e2e;
+  --color-primary-hover: #a3141f;
+  --color-tint: #fbeaec;
+  --color-row-hover: #fdf8f5;
+
+  /* --- Color: estado --- */
+  --color-ok: #1e7f4f;
+  --color-ok-bg: #e7f4ed;
+  --color-warn: #b8781a;
+  --color-warn-bg: #faf1e2;
+  --color-err: #a3141f;
+  --color-err-bg: #fbeaec;
+
+  /* --- Tipografía: sans para todo, mono SOLO para datos numéricos --- */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  /* --- Forma --- */
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-lg: 8px;
+  --shadow-card: 0 1px 2px rgba(28, 27, 26, 0.04), 0 10px 28px -14px rgba(28, 27, 26, 0.12);
+
+  /* --- Layout --- */
+  --sidebar-width: 216px;
+
   color-scheme: light;
+}
+
+/* ===== Base ===== */
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #f4f5f7;
-  color: #1c1e21;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-primary-hover);
+}
+
+h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  margin: 0;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Foco visible en todo lo interactivo: gratis y es accesibilidad real. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ===== Layout: shell (sidebar + topbar + contenido) ===== */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-shell__contenido {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  min-height: 100vh;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__marca {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sidebar__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar__nombre {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.sidebar__slug {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 0.6rem;
+}
+
+.sidebar__nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius);
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 500;
+  border-left: 2px solid transparent;
+}
+
+.sidebar__nav a:hover {
+  background: var(--color-tint);
+  color: var(--color-ink);
+}
+
+.sidebar__nav a.active {
+  background: var(--color-tint);
+  color: var(--color-primary);
+  border-left-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.sidebar__footer {
+  margin-top: auto;
+  padding: 0.9rem 1.1rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.sidebar__usuario {
+  font-size: 12px;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.topbar {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.7rem 1.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.topbar__breadcrumb {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.topbar__breadcrumb strong {
+  color: var(--color-ink);
+  font-weight: 600;
+  font-size: 15px;
+  margin-left: 0.35rem;
+}
+
+/* ===== Contenedores de página ===== */
+
 .contenedor {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 1.5rem;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .contenedor--angosto {
   max-width: 380px;
+  width: 100%;
 }
 
-.nav {
+.pantalla-login {
+  min-height: 100vh;
   display: flex;
-  gap: 1rem;
   align-items: center;
-  padding: 0.75rem 1.5rem;
-  background: #1c1e21;
-  color: #fff;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--color-bg);
 }
 
-.nav a {
-  color: #fff;
-  text-decoration: none;
+/* ===== Tarjetas ===== */
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
-.nav a.active {
-  text-decoration: underline;
+.card__header {
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.nav__usuario {
-  margin-left: auto;
-  font-size: 0.85rem;
-  opacity: 0.8;
+.card__body {
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
 }
+
+.card__body--fila {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* ===== Formularios ===== */
 
 form {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1.5rem;
+  gap: 0.9rem;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.campo--fila {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.campo--fila > .campo {
+  flex: 1;
+  min-width: 140px;
 }
 
 label {
-  font-size: 0.85rem;
+  font-size: 11px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
 }
 
 input,
 select {
-  padding: 0.45rem;
-  border: 1px solid #c4c7cc;
-  border-radius: 4px;
-  font-size: 1rem;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  outline: none;
+  width: 100%;
 }
 
+input::placeholder {
+  color: var(--color-disabled);
+}
+
+input:focus,
+select:focus {
+  border-color: var(--color-primary);
+}
+
+input.mono {
+  font-family: var(--font-mono);
+}
+
+.acciones-form {
+  display: flex;
+  gap: 0.6rem;
+}
+
+/* ===== Botones ===== */
+
 button {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
   padding: 0.5rem 0.9rem;
-  border: 0;
-  border-radius: 4px;
-  background: #1c1e21;
-  color: #fff;
-  font-size: 0.95rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-surface);
+  color: var(--color-ink);
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+button:hover {
+  border-color: var(--color-ink);
 }
 
 button:disabled {
-  background: #9aa0a6;
+  background: var(--color-bg);
+  color: var(--color-disabled);
+  border-color: var(--color-border);
   cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.btn--primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.btn--primary:disabled {
+  background: var(--color-disabled);
+  border-color: var(--color-disabled);
+  color: #fff;
+}
+
+.btn--danger {
+  background: var(--color-err);
+  color: #fff;
+  border-color: var(--color-err);
+}
+
+.btn--danger:hover {
+  background: #8a0f19;
+  border-color: #8a0f19;
+}
+
+.btn--danger:disabled {
+  background: var(--color-disabled);
+  border-color: var(--color-disabled);
+  color: #fff;
+}
+
+/* ===== Tablas ===== */
+
+.tabla-scroll {
+  overflow-x: auto;
 }
 
 table {
   width: 100%;
+  min-width: 100%;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--color-surface);
+  font-size: 13px;
 }
 
-th,
-td {
-  padding: 0.5rem;
-  border-bottom: 1px solid #e3e5e8;
+thead th {
   text-align: left;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  white-space: nowrap;
 }
 
-.error {
-  color: #b3261e;
+tbody td {
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid var(--color-border-row);
+  vertical-align: middle;
+}
+
+tbody tr:hover {
+  background: var(--color-row-hover);
+}
+
+/* Datos numéricos/monetarios: SIEMPRE en mono, alineados a la derecha. */
+.num {
+  font-family: var(--font-mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Fila de venta anulada: existía la clase sin regla asociada. */
+tr.venta--anulada td {
+  color: var(--color-muted);
+}
+
+/* ===== Pills de estado ===== */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm);
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.pill--pendiente {
+  background: var(--color-warn-bg);
+  color: var(--color-warn);
+}
+
+.pill--anulada {
+  background: var(--color-err-bg);
+  color: var(--color-err);
+}
+
+/* ===== Estados vacíos y mensajes ===== */
+
+.estado-vacio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.estado-vacio strong {
+  color: var(--color-ink);
+  font-size: 15px;
   font-weight: 600;
 }
 
+.error {
+  color: var(--color-err);
+  background: var(--color-err-bg);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
 .total {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.total .mono {
+  font-size: 20px;
+  font-weight: 600;
+  margin-left: 0.4rem;
+}
+
+/* ===== Responsive =====
+   El original ("Carmín") es solo de escritorio; acá agregamos un
+   breakpoint para que el sidebar deje de ser una columna fija y las
+   tablas puedan desplazarse horizontalmente en vez de romper la página. */
+
+@media (max-width: 720px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+    position: static;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+  }
+
+  .sidebar__marca {
+    border-bottom: none;
+    border-right: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  .sidebar__nav {
+    flex-direction: row;
+    padding: 0.5rem;
+  }
+
+  .sidebar__nav a {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+  }
+
+  .sidebar__nav a.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--color-primary);
+  }
+
+  .sidebar__footer {
+    margin-top: 0;
+    margin-left: auto;
+    flex-direction: row;
+    align-items: center;
+    border-top: none;
+    border-left: 1px solid var(--color-border);
+  }
+
+  .topbar {
+    padding: 0.6rem 1rem;
+  }
+
+  .contenedor {
+    padding: 1rem;
+  }
+
+  .campo--fila {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

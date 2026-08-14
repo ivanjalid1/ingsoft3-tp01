@@ -25,32 +25,40 @@ export default function Login() {
   }
 
   return (
-    <main className="contenedor contenedor--angosto">
-      <h1>Iniciar sesión</h1>
+    <div className="pantalla-login">
+      <main className="contenedor--angosto card">
+        <div className="card__body">
+          <h1>Iniciar sesión</h1>
 
-      <form onSubmit={manejarSubmit}>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+          <form onSubmit={manejarSubmit}>
+            <div className="campo">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
 
-        <label htmlFor="password">Contraseña</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+            <div className="campo">
+              <label htmlFor="password">Contraseña</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
 
-        {error && <p role="alert" className="error">{error}</p>}
+            {error && <p role="alert" className="error">{error}</p>}
 
-        <button type="submit" disabled={enviando}>
-          {enviando ? 'Ingresando…' : 'Ingresar'}
-        </button>
-      </form>
-    </main>
+            <button type="submit" className="btn--primary" disabled={enviando}>
+              {enviando ? 'Ingresando…' : 'Ingresar'}
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
   );
 }

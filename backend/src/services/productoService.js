@@ -13,11 +13,22 @@ function validarDatos({ nombre, precio, stock }) {
   }
 }
 
+// Un id de ruta inválido (NaN, decimal, cero, negativo) no puede llegar a una
+// query: mysql2 lo pasaría tal cual al driver y el error crudo caería en el
+// branch genérico del errorHandler como 500. Se corta acá, antes de tocar el
+// model, para que siempre sea un 400 de dominio.
+function validarId(id) {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError(400, 'DATOS_INVALIDOS', 'El id debe ser un número entero positivo');
+  }
+}
+
 export async function listar(incluirInactivos = false) {
   return productoModel.listar(incluirInactivos);
 }
 
 export async function obtener(id) {
+  validarId(id);
   const producto = await productoModel.buscarPorId(id);
   if (!producto) {
     throw new AppError(404, 'PRODUCTO_NO_ENCONTRADO', `No existe el producto ${id}`);

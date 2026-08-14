@@ -119,6 +119,16 @@ describe('GET /api/clientes/:id', () => {
     expect(respuesta.status).toBe(404);
     expect(respuesta.body.error.code).toBe('CLIENTE_NO_ENCONTRADO');
   });
+
+  it('devuelve 400 DATOS_INVALIDOS con un id no numérico y no llega al model', async () => {
+    const respuesta = await request(app)
+      .get('/api/clientes/abc')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
+    expect(clienteModel.buscarPorId).not.toHaveBeenCalled();
+  });
 });
 
 describe('DELETE /api/clientes/:id', () => {

@@ -47,6 +47,28 @@ describe('Pantalla de productos', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  // ── TEST 1 del frontend — Validación (caso límite: precio === 0) ──
+  // La regla de productoService es "precio > 0", o sea "precio ≤ 0" es
+  // inválido. El test de arriba solo prueba -5 (claramente negativo); este
+  // cubre el borde exacto que separa válido de inválido, que es el caso que
+  // de verdad prueba si la condición está bien escrita (`<= 0` vs `< 0`).
+  it('no envía el formulario con precio en cero: muestra el error y no llama a la API', async () => {
+    const usuario = userEvent.setup();
+    renderizarProductos();
+
+    expect(await screen.findByText('Teclado')).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    await usuario.type(screen.getByLabelText(/nombre/i), 'Mouse');
+    await usuario.type(screen.getByLabelText(/precio/i), '0');
+    await usuario.type(screen.getByLabelText(/stock/i), '30');
+    await usuario.click(screen.getByRole('button', { name: /guardar/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/precio debe ser mayor a cero/i);
+    // Lo importante: no hubo un segundo fetch. El POST nunca salió.
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('no envía el formulario con el nombre vacío: muestra el error y no llama a la API', async () => {
     const usuario = userEvent.setup();
     renderizarProductos();

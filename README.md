@@ -52,14 +52,17 @@ pesa unos pocos MB encima).
 Necesitás un MySQL 8 corriendo en `localhost:3306` con el `init.sql` ya
 ejecutado.
 
-Backend:
+Backend (PowerShell, que es donde se desarrolló y se probó):
 
-```bash
+```powershell
 cd backend
-copy .env.example .env
+Copy-Item .env.example .env
 npm install
 npm run dev
 ```
+
+En Git Bash o en Linux, la primera línea del bloque de arriba es
+`cp .env.example .env`; el resto es igual.
 
 Frontend, en otra terminal:
 
@@ -84,8 +87,14 @@ proceso no arranca y dice cuál. Están documentadas en `backend/.env.example`.
 | `DB_USER` | `root` | `erp_user` |
 | `DB_PASSWORD` | `root` | `erp_pass` |
 | `DB_NAME` | `erp` | `erp` |
-| `JWT_SECRET` | `dev-secret-no-usar-en-prod` | secreto del entorno |
+| `JWT_SECRET` | `dev-secret-no-usar-en-prod` | `dev-secret-cambiar-en-prod` (literal en `docker-compose.yml`) |
 | `PORT` | `3000` | `3000` |
+
+El `JWT_SECRET` del compose es un **valor de desarrollo escrito a mano en el
+archivo**, no un secreto inyectado desde afuera: sirve para que `docker compose
+up` funcione sin configuración previa, y **en producción hay que cambiarlo**
+(pasarlo por el entorno del runner o por un gestor de secretos, que es lo que
+corresponde a partir del TP6/TP9). Lo mismo vale para `rootpass` y `erp_pass`.
 
 El frontend **no usa ninguna variable de entorno**: llama siempre a rutas
 relativas `/api/...` y quien resuelve a dónde van es el proxy (Vite en
@@ -98,21 +107,27 @@ que la regla "todo `/api` pide token salvo el login" no tenga excepciones.
 
 ```bash
 cd backend
-npm test          # 52 tests
+npm test          # 56 tests
 ```
 
 ```bash
 cd frontend
-npm test          # 13 tests
+npm test          # 15 tests
 ```
 
-Total: **65 casos** (52 backend + 13 frontend). El TP5 exige un subconjunto
-identificado de esos 65: **8 de backend** (uno por cada regla de negocio de la
+Total: **71 casos** (56 backend + 15 frontend). El TP5 exige un subconjunto
+identificado de esos 71: **8 de backend** (uno por cada regla de negocio de la
 tabla de abajo) y **4 de frontend**. El resto son tests adicionales de
 cobertura (casos límite, validación de entorno, ABM de clientes, etc.) que se
 sumaron durante la implementación porque el ciclo TDD del plan los pedía antes
 de escribir cada función. Ningún número de este README está inflado: son los
 que produce `npm test` tal cual, sin filtrar.
+
+Los tests de backend son **independientes del entorno de la máquina**: el caso
+que verifica que el arranque muere si falta una variable corre el proceso hijo
+en un directorio temporal vacío, así que da lo mismo si existe o no el
+`backend/.env` que la sección anterior manda crear. Verificado en las dos
+situaciones.
 
 ### Los 8 de backend que exige el TP5
 
@@ -165,7 +180,24 @@ docker-compose.yml
 
 ## Verificación end-to-end realizada
 
-Contra los tres contenedores levantados con `docker compose up -d --build`:
-login → alta de producto → creación de venta (stock 20→18) → anulación (stock
-18→20) → segunda anulación de la misma venta → `409 VENTA_YA_ANULADA`. El
-detalle completo, con las respuestas HTTP reales, está en `evidencias.md`.
+Contra los tres contenedores levantados con `docker compose up -d --build`, y
+**re-corrida entera** después de los últimos cambios al `Dockerfile` del backend
+y al healthcheck del compose (una imagen distinta invalida la verificación
+anterior):
+
+| Paso | Resultado real |
+|------|----------------|
+| `docker compose ps` | `db` `(healthy)`, `backend` `Up`, `frontend` `Up` |
+| `GET http://localhost:8080/` | `200`, 396 bytes (el `index.html` del SPA) |
+| Login `admin@erp.local` / `Admin123!` | `200` con el JWT y `{"id":1,"email":"admin@erp.local"}` |
+| Alta de producto (`9500.55`, stock 20) | `201`, `id: 3` |
+| Venta de 3 unidades | `201`, `total: 28501.65`, stock **20 → 17** |
+| Anulación de esa venta | `200`, `stock_repuesto: true`, stock **17 → 20** |
+| Segunda anulación de la misma venta | `409` `{"error":{"code":"VENTA_YA_ANULADA",...}}` |
+| `docker compose exec backend whoami` | `node` (uid 1000) — el backend **no corre como root** |
+
+El total `28501.65` no es decorativo: `3 × 9500.55` da `28501.649999999998` en
+punto flotante. Que la respuesta traiga exactamente `28501.65` es la regla de
+redondeo de dinero funcionando contra MySQL real, no contra un mock.
+
+El detalle con las respuestas HTTP completas está en `evidencias.md`.

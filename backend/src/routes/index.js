@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { verificarToken } from '../middlewares/auth.js';
 import authRoutes from './authRoutes.js';
 import clienteRoutes from './clienteRoutes.js';
+import productoRoutes from './productoRoutes.js';
 
 const router = Router();
 
@@ -13,5 +14,6 @@ router.use('/auth', authRoutes);
 router.use(verificarToken);
 
 router.use('/clientes', clienteRoutes);
+router.use('/productos', productoRoutes);
 
 export default router;

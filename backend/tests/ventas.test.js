@@ -348,6 +348,83 @@ describe('POST /api/ventas', () => {
     expect(respuesta.status).toBe(400);
     expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
   });
+
+  // Antes esto era un TypeError al leer una propiedad de null: 500.
+  it('rechaza con 400 DATOS_INVALIDOS un ítem null', async () => {
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ cliente_id: 1, items: [null] });
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
+    expect(ventaModel.obtenerConexion).not.toHaveBeenCalled();
+  });
+
+  // Antes esto bindeaba undefined en la query: mysql2 lo rechazaba y salía 500.
+  it('rechaza con 400 DATOS_INVALIDOS un ítem sin producto_id', async () => {
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ cliente_id: 1, items: [{ cantidad: 2 }] });
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
+    expect(productoModel.buscarPorIdParaActualizar).not.toHaveBeenCalled();
+    expect(ventaModel.obtenerConexion).not.toHaveBeenCalled();
+  });
+
+  // Si el rollback falla, su error no puede suplantar al error de dominio:
+  // el cliente tiene que seguir viendo su 409, no un 500 genérico.
+  it('conserva el error original aunque falle el rollback', async () => {
+    productoModel.buscarPorIdParaActualizar.mockResolvedValueOnce({ ...MONITOR, stock: 1 });
+    conn.rollback.mockRejectedValue(new Error('conexión caída'));
+    // El service loguea el fallo del rollback; se silencia para no ensuciar
+    // la salida de la suite.
+    const registro = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ cliente_id: 1, items: [{ producto_id: 2, cantidad: 3 }] });
+
+    expect(respuesta.status).toBe(409);
+    expect(respuesta.body.error.code).toBe('STOCK_INSUFICIENTE');
+    // Y la conexión igual vuelve al pool.
+    expect(conn.release).toHaveBeenCalledTimes(1);
+    registro.mockRestore();
+  });
+});
+
+describe('GET /api/ventas', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('devuelve 200 con la lista de ventas que da el model', async () => {
+    ventaModel.listar.mockResolvedValue([
+      { id: 7, cliente_id: 1, cliente_nombre: 'Cliente Demo', fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'pendiente' },
+      { id: 6, cliente_id: 1, cliente_nombre: 'Cliente Demo', fecha: '2026-08-12T10:00:00.000Z', total: 15000, estado: 'anulada' }
+    ]);
+
+    const respuesta = await request(app)
+      .get('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toHaveLength(2);
+    expect(respuesta.body[0].id).toBe(7);
+    expect(respuesta.body[1].estado).toBe('anulada');
+    expect(ventaModel.listar).toHaveBeenCalledTimes(1);
+  });
+
+  it('devuelve 401 TOKEN_FALTANTE sin Authorization', async () => {
+    const respuesta = await request(app).get('/api/ventas');
+
+    expect(respuesta.status).toBe(401);
+    expect(respuesta.body.error.code).toBe('TOKEN_FALTANTE');
+    expect(ventaModel.listar).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/ventas/:id', () => {

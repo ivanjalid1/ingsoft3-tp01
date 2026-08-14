@@ -1,5 +1,6 @@
 import { AppError } from '../utils/AppError.js';
 import * as productoModel from '../models/productoModel.js';
+import { validarId } from './validaciones.js';
 
 function validarDatos({ nombre, precio, stock }) {
   if (typeof nombre !== 'string' || nombre.trim() === '') {
@@ -10,16 +11,6 @@ function validarDatos({ nombre, precio, stock }) {
   }
   if (!Number.isInteger(stock) || stock < 0) {
     throw new AppError(400, 'DATOS_INVALIDOS', 'El stock debe ser un entero mayor o igual a cero');
-  }
-}
-
-// Un id de ruta inválido (NaN, decimal, cero, negativo) no puede llegar a una
-// query: mysql2 lo pasaría tal cual al driver y el error crudo caería en el
-// branch genérico del errorHandler como 500. Se corta acá, antes de tocar el
-// model, para que siempre sea un 400 de dominio.
-function validarId(id) {
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new AppError(400, 'DATOS_INVALIDOS', 'El id debe ser un número entero positivo');
   }
 }
 

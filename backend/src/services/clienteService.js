@@ -1,5 +1,6 @@
 import { AppError } from '../utils/AppError.js';
 import * as clienteModel from '../models/clienteModel.js';
+import { validarId } from './validaciones.js';
 
 // Validación deliberadamente simple: hay un @, hay un punto después y no hay
 // espacios. Validar emails con una regex "completa" es un pozo sin fondo;
@@ -12,16 +13,6 @@ function validarDatos({ nombre, email }) {
   }
   if (typeof email !== 'string' || !RE_EMAIL.test(email)) {
     throw new AppError(400, 'DATOS_INVALIDOS', 'El email tiene formato inválido');
-  }
-}
-
-// Un id de ruta inválido (NaN, decimal, cero, negativo) no puede llegar a una
-// query: mysql2 lo pasaría tal cual al driver y el error crudo caería en el
-// branch genérico del errorHandler como 500. Se corta acá, antes de tocar el
-// model, para que siempre sea un 400 de dominio.
-function validarId(id) {
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new AppError(400, 'DATOS_INVALIDOS', 'El id debe ser un número entero positivo');
   }
 }
 

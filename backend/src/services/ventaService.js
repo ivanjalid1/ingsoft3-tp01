@@ -2,21 +2,12 @@ import { AppError } from '../utils/AppError.js';
 import * as ventaModel from '../models/ventaModel.js';
 import * as clienteModel from '../models/clienteModel.js';
 import * as productoModel from '../models/productoModel.js';
+import { validarId } from './validaciones.js';
 
 // Los montos vienen de DECIMAL(10,2). Redondear a dos decimales después
 // de cada operación evita que un 0.1 + 0.2 binario se cuele en el total.
 function redondear(monto) {
   return Math.round(monto * 100) / 100;
-}
-
-// Un id de ruta inválido (NaN, decimal, cero, negativo) no puede llegar a una
-// query: se corta acá, antes de tocar el model, para que siempre sea un 400
-// de dominio y nunca un 500 del driver. Mismo criterio que en clientes y
-// productos.
-function validarId(id) {
-  if (!Number.isInteger(id) || id <= 0) {
-    throw new AppError(400, 'DATOS_INVALIDOS', 'El id debe ser un número entero positivo');
-  }
 }
 
 function validarForma(clienteId, items) {

@@ -12,14 +12,31 @@ export default function Nav() {
     navigate('/login');
   }
 
+  function claseLink({ isActive }) {
+    return isActive ? 'active' : undefined;
+  }
+
   return (
-    <nav className="nav">
-      <NavLink to="/productos">Productos</NavLink>
-      <NavLink to="/clientes">Clientes</NavLink>
-      <NavLink to="/ventas/nueva">Nueva venta</NavLink>
-      <NavLink to="/ventas">Ventas</NavLink>
-      <span className="nav__usuario">{usuario?.email}</span>
-      <button type="button" onClick={manejarLogout}>Salir</button>
-    </nav>
+    <aside className="sidebar">
+      <div className="sidebar__marca">
+        <span className="sidebar__logo" aria-hidden="true">E</span>
+        <div>
+          <div className="sidebar__nombre">ERP mínimo</div>
+          <span className="sidebar__slug">UCC 2026</span>
+        </div>
+      </div>
+
+      <nav className="sidebar__nav">
+        <NavLink to="/productos" className={claseLink}>Productos</NavLink>
+        <NavLink to="/clientes" className={claseLink}>Clientes</NavLink>
+        <NavLink to="/ventas/nueva" className={claseLink}>Nueva venta</NavLink>
+        <NavLink to="/ventas" className={claseLink}>Ventas</NavLink>
+      </nav>
+
+      <div className="sidebar__footer">
+        <span className="sidebar__usuario">{usuario?.email}</span>
+        <button type="button" onClick={manejarLogout}>Salir</button>
+      </div>
+    </aside>
   );
 }

@@ -30,8 +30,20 @@ export async function apiFetch(ruta, opciones = {}) {
     body: opciones.body ? JSON.stringify(opciones.body) : undefined
   });
 
+  // El backend siempre responde JSON, pero el que contesta puede no ser el
+  // backend: si nginx no lo alcanza devuelve su propia página 502 en HTML, y
+  // `JSON.parse('<html>...')` tiraba un SyntaxError crudo en pantalla. Ante un
+  // cuerpo ilegible se degrada a `null` y el error sigue el mismo camino que
+  // cualquier otro: un ApiError con el status real. El contrato no cambia.
   const texto = await respuesta.text();
-  const datos = texto ? JSON.parse(texto) : null;
+  let datos = null;
+  if (texto) {
+    try {
+      datos = JSON.parse(texto);
+    } catch {
+      datos = null;
+    }
+  }
 
   if (!respuesta.ok) {
     // Token vencido o inválido: se limpia la sesión y se vuelve al login.

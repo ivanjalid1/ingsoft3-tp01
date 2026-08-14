@@ -4,6 +4,8 @@ bin/
 obj/
 dist/
 build/
+coverage/
+*.log
 
 # secretos: NUNCA se versionan
 .env

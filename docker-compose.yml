@@ -1,0 +1,60 @@
+services:
+  db:
+    image: mysql:8
+    container_name: erp-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: erp
+      MYSQL_USER: erp_user
+      MYSQL_PASSWORD: erp_pass
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      # -h 127.0.0.1 fuerza TCP. Con `-h localhost`, mysqladmin resuelve por
+      # SOCKET UNIX, y durante la inicialización la imagen mysql:8 levanta un
+      # servidor TEMPORAL con --skip-networking para correr los scripts de
+      # /docker-entrypoint-initdb.d/. Ese servidor responde el ping por socket,
+      # así que compose podía marcar db healthy ANTES de que el 3306 real
+      # escuchara: el backend arrancaba contra una base que todavía no estaba.
+      # Por TCP, el ping solo contesta cuando el servidor definitivo escucha,
+      # que es exactamente la condición que el `depends_on` necesita.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-prootpass"]
+      # interval corto: el arranque del backend espera a este healthcheck, así
+      # que chequear seguido acorta el `docker compose up`. start_period generoso
+      # porque el primer arranque además ejecuta init.sql; no cuesta nada, porque
+      # el primer ping exitoso termina el período de gracia de inmediato.
+      # Pasado ese período, retries × interval = 60s de tolerancia a caídas.
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  backend:
+    build: ./backend
+    container_name: erp-backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: erp_user
+      DB_PASSWORD: erp_pass
+      DB_NAME: erp
+      JWT_SECRET: dev-secret-cambiar-en-prod
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: erp-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:

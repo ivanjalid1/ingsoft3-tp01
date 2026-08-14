@@ -1,0 +1,102 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: #f4f5f7;
+  color: #1c1e21;
+}
+
+.contenedor {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.contenedor--angosto {
+  max-width: 380px;
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: #1c1e21;
+  color: #fff;
+}
+
+.nav a {
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav a.active {
+  text-decoration: underline;
+}
+
+.nav__usuario {
+  margin-left: auto;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1.5rem;
+}
+
+label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+input,
+select {
+  padding: 0.45rem;
+  border: 1px solid #c4c7cc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+button {
+  padding: 0.5rem 0.9rem;
+  border: 0;
+  border-radius: 4px;
+  background: #1c1e21;
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #9aa0a6;
+  cursor: not-allowed;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th,
+td {
+  padding: 0.5rem;
+  border-bottom: 1px solid #e3e5e8;
+  text-align: left;
+}
+
+.error {
+  color: #b3261e;
+  font-weight: 600;
+}
+
+.total {
+  font-size: 1.2rem;
+  font-weight: 700;
+}

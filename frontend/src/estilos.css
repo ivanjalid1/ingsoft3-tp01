@@ -419,21 +419,28 @@ button:disabled {
   color: #fff;
 }
 
+/* Variante discreta pero inequívocamente peligrosa: contorno + texto en el
+   color de error, SIN relleno sólido. El rojo sólido (.btn--primary) queda
+   reservado para la acción principal de cada pantalla (Guardar, Agregar,
+   Confirmar venta); si "Dar de baja" o "Anular" tuvieran el mismo peso
+   visual, en una tabla de varias filas el ojo va a los botones de borrado
+   en vez de a los datos. */
 .btn--danger {
-  background: var(--color-err);
-  color: #fff;
+  background: transparent;
+  color: var(--color-err);
   border-color: var(--color-err);
 }
 
 .btn--danger:hover {
-  background: #8a0f19;
-  border-color: #8a0f19;
+  background: var(--color-err-bg);
+  border-color: var(--color-err);
+  color: var(--color-err);
 }
 
 .btn--danger:disabled {
-  background: var(--color-disabled);
+  background: transparent;
   border-color: var(--color-disabled);
-  color: #fff;
+  color: var(--color-disabled);
 }
 
 /* ===== Tablas ===== */
@@ -460,6 +467,16 @@ thead th {
   letter-spacing: 0.05em;
   color: var(--color-muted);
   white-space: nowrap;
+}
+
+/* Encabezado de una columna cuyos datos están alineados a la derecha (ver
+   .num más abajo): el título tiene que compartir el mismo borde que su
+   dato, si no quedan flotando en lados opuestos de la columna. Clase
+   propia (no reutiliza .num) a propósito: el encabezado sigue en mayúsculas
+   y en la tipografía sans del resto de la fila — mono es exclusivo de los
+   datos, no de los títulos. */
+th.num-header {
+  text-align: right;
 }
 
 tbody td {

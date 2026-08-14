@@ -122,3 +122,43 @@ export async function crear(clienteId, items) {
   // rollback() ejecutándose después del commit().
   return obtener(ventaId);
 }
+
+export async function anular(ventaId) {
+  validarId(ventaId);
+
+  // Se valida el estado ANTES de abrir la transacción: si la venta ya está
+  // anulada (o no existe), no hace falta tomar una conexión del pool ni
+  // bloquear ninguna fila.
+  const cabecera = await ventaModel.buscarCabecera(null, ventaId);
+
+  if (!cabecera) {
+    throw new AppError(404, 'VENTA_NO_ENCONTRADA', `No existe la venta ${ventaId}`);
+  }
+  if (cabecera.estado === 'anulada') {
+    throw new AppError(409, 'VENTA_YA_ANULADA', `La venta ${ventaId} ya está anulada`);
+  }
+
+  const conn = await ventaModel.obtenerConexion();
+
+  try {
+    await conn.beginTransaction();
+
+    // Bucle de lectura: acá no se escribe nada todavía.
+    const items = await ventaModel.listarItems(conn, ventaId);
+
+    // Bucle de escritura: se repone el stock de cada ítem y se marca la venta.
+    for (const item of items) {
+      await productoModel.reponerStock(conn, item.producto_id, item.cantidad);
+    }
+    await ventaModel.marcarAnulada(conn, ventaId);
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+
+  return { id: Number(ventaId), estado: 'anulada', stock_repuesto: true };
+}

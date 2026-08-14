@@ -251,3 +251,75 @@ describe('GET /api/ventas/:id', () => {
     expect(ventaModel.buscarCabecera).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/ventas/:id/anular', () => {
+  let conn;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    conn = conexionFalsa();
+    ventaModel.obtenerConexion.mockResolvedValue(conn);
+  });
+
+  // ── TEST 5 del TP5 — Transición de estado ──────────────────────
+  it('anula una venta pendiente, repone el stock de cada ítem y devuelve 200', async () => {
+    ventaModel.buscarCabecera.mockResolvedValue({
+      id: 7, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+      fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([
+      { id: 1, producto_id: 1, producto_nombre: 'Teclado', cantidad: 2, precio_unitario: 15000, subtotal: 30000 },
+      { id: 2, producto_id: 2, producto_nombre: 'Monitor', cantidad: 1, precio_unitario: 180000, subtotal: 180000 }
+    ]);
+    ventaModel.marcarAnulada.mockResolvedValue(1);
+
+    const respuesta = await request(app)
+      .post('/api/ventas/7/anular')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual({ id: 7, estado: 'anulada', stock_repuesto: true });
+
+    // Una reposición por ítem, con la cantidad exacta de ese ítem.
+    expect(productoModel.reponerStock).toHaveBeenCalledTimes(2);
+    expect(productoModel.reponerStock).toHaveBeenNthCalledWith(1, conn, 1, 2);
+    expect(productoModel.reponerStock).toHaveBeenNthCalledWith(2, conn, 2, 1);
+
+    expect(ventaModel.marcarAnulada).toHaveBeenCalledWith(conn, 7);
+    expect(conn.commit).toHaveBeenCalledTimes(1);
+    expect(conn.rollback).not.toHaveBeenCalled();
+    expect(conn.release).toHaveBeenCalledTimes(1);
+  });
+
+  // ── TEST 6 del TP5 — Transición de estado inválida ─────────────
+  it('rechaza con 409 VENTA_YA_ANULADA una venta ya anulada y NO repone stock', async () => {
+    ventaModel.buscarCabecera.mockResolvedValue({
+      id: 7, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+      fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'anulada'
+    });
+
+    const respuesta = await request(app)
+      .post('/api/ventas/7/anular')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(409);
+    expect(respuesta.body.error.code).toBe('VENTA_YA_ANULADA');
+    // Lo importante: no se repone stock de más.
+    expect(productoModel.reponerStock).not.toHaveBeenCalled();
+    expect(ventaModel.marcarAnulada).not.toHaveBeenCalled();
+    // Ni siquiera se abrió una transacción.
+    expect(ventaModel.obtenerConexion).not.toHaveBeenCalled();
+  });
+
+  it('devuelve 404 VENTA_NO_ENCONTRADA si la venta no existe', async () => {
+    ventaModel.buscarCabecera.mockResolvedValue(null);
+
+    const respuesta = await request(app)
+      .post('/api/ventas/99/anular')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body.error.code).toBe('VENTA_NO_ENCONTRADA');
+    expect(productoModel.reponerStock).not.toHaveBeenCalled();
+  });
+});

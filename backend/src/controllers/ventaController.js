@@ -27,3 +27,12 @@ export async function crear(req, res, next) {
     next(err);
   }
 }
+
+export async function anular(req, res, next) {
+  try {
+    const resultado = await ventaService.anular(Number(req.params.id));
+    res.status(200).json(resultado);
+  } catch (err) {
+    next(err);
+  }
+}

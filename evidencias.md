@@ -45,9 +45,19 @@ entrada de abajo deja el link tal como va a quedar (`img/NN-nombre.png`) más un
 nota **PENDIENTE** con el paso y el comando exactos que producen esa pantalla —
 así ninguna es un link que apunta a la nada sin explicación. La fuente de esta
 lista es la verificación end-to-end real que sí se ejecutó contra los tres
-contenedores (Tarea 11): los datos de las capturas (`Mouse` a `9500.50`/`30`,
-`210000.00` de total, Teclado 20→18, Monitor 5→4) tienen que coincidir con lo que
-el alumno repita a mano.
+contenedores.
+
+Los productos, precios y cantidades que aparecen en las notas de abajo son un
+**recorrido de ejemplo**, no un guion a copiar al pie de la letra: sirven para
+tener un camino concreto que seguir, pero la captura no vale por los números que
+muestre. Cada entrada dice, debajo del link, **qué relación tiene que probar** esa
+captura — que el stock bajó exactamente en la cantidad vendida, que el total es la
+suma de los subtotales, que la anulación devuelve el stock a su valor previo. Esas
+afirmaciones son verdaderas con cualquier producto y cualquier cantidad, así que
+la evidencia sigue valiendo si el recorrido se repite con otros datos (por ejemplo
+al rehacerlo en el TP6). Lo que sí es literal y no se cambia: los `code` de error,
+los status HTTP, los comandos, las credenciales de la semilla y la cantidad de
+tests.
 
 ## 5. Login y credenciales inválidas
 
@@ -72,17 +82,23 @@ registrados. El `password_hash` no aparece en ninguna respuesta.
 
 ![alta de producto](img/07-alta-producto.png)
 
-> **PENDIENTE.** En `/productos`, cargar `Mouse` con precio `9500.50` y stock
-> `30`, guardar y capturar la tabla con la fila nueva.
+> **PENDIENTE.** En `/productos`, dar de alta un producto (en el recorrido de
+> ejemplo, `Mouse` con precio `9500.50` y stock `30`), guardar y capturar la
+> tabla con la fila nueva.
+
+El producto aparece en la tabla con el precio y el stock que se cargaron. Conviene
+usar un precio **con centavos**: así la captura muestra de paso que los montos se
+guardan y se muestran con dos decimales exactos.
 
 ![validación de precio](img/08-validacion-precio.png)
 
-> **PENDIENTE.** En el mismo formulario, intentar guardar con precio `-5` y
-> capturar el mensaje de error sin que se agregue nada a la tabla.
+> **PENDIENTE.** En el mismo formulario, intentar guardar con un precio `≤ 0`
+> (por ejemplo `-5`, o `0`) y capturar el mensaje de error sin que se agregue
+> nada a la tabla.
 
-Con `precio = -5` el formulario muestra el error y **no llama a la API**: no
-hay una segunda request en la pestaña Network. La misma regla la valida el
-backend, que es la frontera confiable.
+Con un precio menor o igual a cero el formulario muestra el error y **no llama a
+la API**: no hay una segunda request en la pestaña Network. La misma regla la
+valida el backend, que es la frontera confiable.
 
 ## 7. Email duplicado de cliente
 
@@ -99,29 +115,39 @@ la consulta previa del service solo da un mensaje más claro.
 
 ![carrito con total](img/10-carrito-total.png)
 
-> **PENDIENTE.** En `/ventas/nueva`, elegir `Cliente Demo`, agregar 2 Teclado y 1
-> Monitor (total `210000.00`), quitar el Monitor (baja a `30000.00`) y volver a
-> agregarlo antes de capturar.
+> **PENDIENTE.** En `/ventas/nueva`, elegir un cliente y armar un carrito con al
+> menos **dos productos distintos** (en el recorrido de ejemplo, 2 Teclado y 1
+> Monitor). Antes de capturar, quitar una de las líneas y volver a agregarla, para
+> ver el total recalcularse en las dos direcciones.
 
-Dos teclados a $15.000 más un monitor a $180.000 dan $210.000. Al quitar el
-monitor, el total baja a $30.000 sin recargar: el total se deriva del carrito,
-no se guarda en estado. Con el carrito vacío, "Confirmar venta" está
-deshabilitado.
+El total mostrado es **exactamente la suma de los subtotales de las líneas del
+carrito**, y cada subtotal es la cantidad por el precio unitario. Al quitar una
+línea, el total baja **exactamente en el subtotal de esa línea**, y al volver a
+agregarla vuelve al valor anterior — todo sin recargar la página, porque el total
+se deriva del carrito en cada render y no se guarda en estado. Con el carrito
+vacío, "Confirmar venta" está deshabilitado.
 
 ## 9. Venta creada y descuento de stock
 
 ![venta creada](img/11-venta-creada.png)
 
 > **PENDIENTE.** Confirmar la venta del punto anterior y capturar `/ventas` con
-> la venta en `pendiente` y total `210000.00`.
+> la venta listada en estado `pendiente`. **Anotar el stock de cada producto
+> ANTES de confirmar**: es contra esos valores que se lee la captura siguiente.
+
+La venta queda en estado `pendiente` y con el mismo total que mostraba el carrito:
+el frontend y el backend calculan el total con la misma regla de redondeo, así que
+coinciden centavo a centavo.
 
 ![stock descontado](img/12-stock-descontado.png)
 
-> **PENDIENTE.** Volver a `/productos` y capturar el stock ya descontado
-> (Teclado 20→18, Monitor 5→4).
+> **PENDIENTE.** Volver a `/productos` y capturar la tabla con el stock ya
+> descontado.
 
-Después de confirmar, el stock del Teclado bajó de 20 a 18 y el del Monitor de
-5 a 4. El descuento ocurre dentro de la misma transacción que crea la venta.
+El stock de cada producto vendido **disminuyó exactamente en la cantidad que
+llevaba la venta**, y el de los productos que no participaron quedó igual. El
+descuento ocurre dentro de la misma transacción que crea la venta: o se guardan la
+venta y los descuentos de todos los ítems, o no se guarda ninguno.
 
 ## 10. Anulación y reposición de stock
 
@@ -132,10 +158,14 @@ Después de confirmar, el stock del Teclado bajó de 20 a 18 y el del Monitor de
 
 ![stock repuesto](img/14-stock-repuesto.png)
 
-> **PENDIENTE.** Volver a `/productos` y capturar el stock ya repuesto (Teclado
-> y Monitor de vuelta a 20 y 5).
+> **PENDIENTE.** Volver a `/productos` y capturar la tabla con el stock ya
+> repuesto.
 
-La venta pasa a `anulada` (no se borra) y el stock vuelve a 20 y a 5.
+La venta pasa a `anulada` y **no se borra**: el histórico queda. El stock de cada
+producto vuelve **exactamente al valor que tenía antes de la venta** — la
+reposición es el descuento del punto 9 al revés, ítem por ítem y con la misma
+cantidad, dentro de una sola transacción. Comparar esta captura con la del punto 9
+alcanza para verlo: los dos números tienen que volver a coincidir.
 
 ![doble anulación rechazada](img/15-doble-anulacion.png)
 
@@ -177,8 +207,11 @@ de entorno, formato de error, ABM de clientes.
 ![docker compose ps](img/18-docker-compose.png)
 
 > **PENDIENTE.** Con los contenedores arriba (`docker compose up -d --build`),
-> correr `docker compose ps` y capturar la terminal. En la corrida real de la
-> Tarea 11 la salida fue `db` `(healthy)`, `backend` `Up`, `frontend` `Up`.
+> correr `docker compose ps` y capturar la terminal. Los tres estados que la
+> captura tiene que mostrar son `db` `(healthy)`, `backend` `Up` y `frontend`
+> `Up` — es lo que dio la verificación end-to-end, y `db` **tiene** que figurar
+> `healthy` y no solo `Up`, porque es la condición que espera el `depends_on`
+> del backend.
 
 `db`, `backend` y `frontend`. El backend no publica puertos al host: solo se
 llega a él por la red interna de compose, a través del proxy inverso de nginx.

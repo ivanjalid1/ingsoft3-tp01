@@ -131,6 +131,69 @@ describe('GET /api/clientes/:id', () => {
   });
 });
 
+describe('PUT /api/clientes/:id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Regla del §9.2 del spec: cambiar el email de un cliente a uno que ya tiene
+  // OTRO cliente se rechaza. La condición fina es `existente.id !== Number(id)`:
+  // acá el email pertenece al cliente 1 y se está editando el 2.
+  it('devuelve 409 EMAIL_DUPLICADO si el email nuevo ya lo tiene otro cliente', async () => {
+    clienteModel.buscarPorId.mockResolvedValue({ ...CLIENTE_DEMO, id: 2, email: 'otro@cliente.local' });
+    clienteModel.buscarPorEmail.mockResolvedValue(CLIENTE_DEMO); // id 1
+
+    const respuesta = await request(app)
+      .put('/api/clientes/2')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ nombre: 'Cliente Dos', email: 'demo@cliente.local', telefono: '3512222222' });
+
+    expect(respuesta.status).toBe(409);
+    expect(respuesta.body.error.code).toBe('EMAIL_DUPLICADO');
+    expect(clienteModel.actualizar).not.toHaveBeenCalled();
+  });
+
+  // La contracara de la regla anterior: si el email que se manda es el que YA
+  // tenía ese mismo cliente, no hay duplicado y la actualización pasa. Sin el
+  // `existente.id !== Number(id)`, nadie podría editarse el teléfono sin
+  // cambiarse también el email.
+  it('deja actualizar un cliente conservando su propio email', async () => {
+    clienteModel.buscarPorId.mockResolvedValue(CLIENTE_DEMO);
+    clienteModel.buscarPorEmail.mockResolvedValue(CLIENTE_DEMO);
+    clienteModel.actualizar.mockResolvedValue({ ...CLIENTE_DEMO, telefono: '3519999999' });
+
+    const respuesta = await request(app)
+      .put('/api/clientes/1')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ nombre: 'Cliente Demo', email: 'demo@cliente.local', telefono: '3519999999' });
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body.telefono).toBe('3519999999');
+    expect(clienteModel.actualizar).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('errorHandler — body con JSON malformado', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // El SyntaxError que lanza body-parser no es un AppError y antes caía al
+  // branch genérico como 500 ERROR_INTERNO. Un JSON mal armado es un error del
+  // cliente, previsible: le toca 400, igual que a cualquier otro dato inválido.
+  it('devuelve 400 DATOS_INVALIDOS y no llega al model', async () => {
+    const respuesta = await request(app)
+      .post('/api/clientes')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .set('Content-Type', 'application/json')
+      .send('{"nombre": "Ana", "email":');
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
+    expect(clienteModel.crear).not.toHaveBeenCalled();
+  });
+});
+
 describe('DELETE /api/clientes/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();

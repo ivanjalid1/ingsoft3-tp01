@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import request from 'supertest';
@@ -21,14 +23,26 @@ describe('config/env', () => {
     const envHijo = { ...process.env, ...envCompleto };
     delete envHijo.PORT;
 
+    // El hijo corre en un directorio temporal RECIÉN CREADO Y VACÍO. `env.js`
+    // empieza con `import 'dotenv/config'`, y dotenv lee
+    // `path.resolve(process.cwd(), '.env')`: si el hijo heredara el cwd de
+    // vitest (`backend/`), el `.env` que el README manda crear le repondría
+    // PORT y el proceso saldría con 0, haciendo pasar el test por la razón
+    // equivocada. Con un cwd vacío no hay `.env` que leer y el test mide lo
+    // que dice medir, con o sin `backend/.env` en la máquina del que lo corre.
+    const directorioSinEnv = fs.mkdtempSync(path.join(os.tmpdir(), 'erp-env-test-'));
+
     let error;
     try {
       execFileSync(process.execPath, [envModulePath], {
+        cwd: directorioSinEnv,
         env: envHijo,
         stdio: 'pipe'
       });
     } catch (e) {
       error = e;
+    } finally {
+      fs.rmSync(directorioSinEnv, { recursive: true, force: true });
     }
 
     expect(error).toBeDefined();

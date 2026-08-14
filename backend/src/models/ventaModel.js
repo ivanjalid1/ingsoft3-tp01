@@ -58,6 +58,27 @@ export async function buscarCabecera(conn, id) {
   return aCabecera(filas[0]);
 }
 
+// Lectura DENTRO de una transacción, igual que productoModel.buscarPorIdParaActualizar.
+// FOR UPDATE bloquea la fila de la venta hasta el commit o el rollback: mientras
+// tanto ninguna otra transacción puede leerla con lock ni cambiarle el estado.
+// No hace JOIN con clientes a propósito: solo hay que bloquear la venta.
+export async function buscarCabeceraParaActualizar(conn, id) {
+  const c = conn ?? pool;
+  const [filas] = await c.execute(
+    'SELECT id, cliente_id, fecha, total, estado FROM ventas WHERE id = ? FOR UPDATE',
+    [id]
+  );
+  const fila = filas[0];
+  if (!fila) return null;
+  return {
+    id: fila.id,
+    cliente_id: fila.cliente_id,
+    fecha: fila.fecha,
+    total: Number(fila.total),
+    estado: fila.estado
+  };
+}
+
 export async function listarItems(conn, ventaId) {
   const c = conn ?? pool;
   const [filas] = await c.execute(

@@ -130,7 +130,7 @@ export default function NuevaVenta() {
         <div className="card__header">Agregar línea</div>
         <div className="card__body">
           <div className="campo--fila">
-            <div className="campo">
+            <div className="campo campo--col-4">
               <label htmlFor="cliente">Cliente</label>
               <select id="cliente" value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
                 <option value="">Elegí un cliente</option>
@@ -140,7 +140,7 @@ export default function NuevaVenta() {
               </select>
             </div>
 
-            <div className="campo">
+            <div className="campo campo--col-4">
               <label htmlFor="producto">Producto</label>
               <select id="producto" value={productoId} onChange={(e) => setProductoId(e.target.value)}>
                 <option value="">Elegí un producto</option>
@@ -150,12 +150,12 @@ export default function NuevaVenta() {
               </select>
             </div>
 
-            <div className="campo">
+            <div className="campo campo--col-2">
               <label htmlFor="cantidad">Cantidad</label>
               <input id="cantidad" className="mono" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
             </div>
 
-            <button type="button" className="btn--primary" onClick={agregar}>Agregar</button>
+            <button type="button" className="btn--primary campo--col-2" onClick={agregar}>Agregar</button>
           </div>
 
           {error && <p role="alert" className="error">{error}</p>}
@@ -170,7 +170,14 @@ export default function NuevaVenta() {
           </div>
         ) : (
           <div className="tabla-scroll">
-            <table>
+            <table className="tabla-carrito">
+              <colgroup>
+                <col className="col-producto" />
+                <col className="col-num-angosta" />
+                <col className="col-num" />
+                <col className="col-num" />
+                <col className="col-acciones" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>Producto</th>
@@ -188,8 +195,12 @@ export default function NuevaVenta() {
                     <td className="num">{linea.precio_unitario.toFixed(2)}</td>
                     <td className="num">{linea.subtotal.toFixed(2)}</td>
                     <td>
-                      <button type="button" onClick={() => quitar(indice)}>
-                        {`Quitar ${linea.nombre}`}
+                      <button
+                        type="button"
+                        onClick={() => quitar(indice)}
+                        aria-label={`Quitar ${linea.nombre}`}
+                      >
+                        Quitar
                       </button>
                     </td>
                   </tr>

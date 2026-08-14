@@ -65,7 +65,7 @@ export default function Clientes() {
         <div className="card__body">
           <form onSubmit={manejarSubmit}>
             <div className="campo--fila">
-              <div className="campo">
+              <div className="campo campo--col-4">
                 <label htmlFor="nombre">Nombre</label>
                 <input
                   id="nombre"
@@ -74,7 +74,7 @@ export default function Clientes() {
                 />
               </div>
 
-              <div className="campo">
+              <div className="campo campo--col-5">
                 <label htmlFor="email">Email</label>
                 <input
                   id="email"
@@ -83,7 +83,7 @@ export default function Clientes() {
                 />
               </div>
 
-              <div className="campo">
+              <div className="campo campo--col-3">
                 <label htmlFor="telefono">Teléfono</label>
                 <input
                   id="telefono"

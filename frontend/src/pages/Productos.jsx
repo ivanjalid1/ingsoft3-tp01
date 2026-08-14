@@ -72,7 +72,7 @@ export default function Productos() {
         <div className="card__body">
           <form onSubmit={manejarSubmit}>
             <div className="campo--fila">
-              <div className="campo">
+              <div className="campo campo--col-8">
                 <label htmlFor="nombre">Nombre</label>
                 <input
                   id="nombre"
@@ -81,7 +81,7 @@ export default function Productos() {
                 />
               </div>
 
-              <div className="campo">
+              <div className="campo campo--col-2">
                 <label htmlFor="precio">Precio</label>
                 <input
                   id="precio"
@@ -91,7 +91,7 @@ export default function Productos() {
                 />
               </div>
 
-              <div className="campo">
+              <div className="campo campo--col-2">
                 <label htmlFor="stock">Stock</label>
                 <input
                   id="stock"

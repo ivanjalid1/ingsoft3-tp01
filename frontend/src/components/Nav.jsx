@@ -30,7 +30,7 @@ export default function Nav() {
         <NavLink to="/productos" className={claseLink}>Productos</NavLink>
         <NavLink to="/clientes" className={claseLink}>Clientes</NavLink>
         <NavLink to="/ventas/nueva" className={claseLink}>Nueva venta</NavLink>
-        <NavLink to="/ventas" className={claseLink}>Ventas</NavLink>
+        <NavLink to="/ventas" end className={claseLink}>Ventas</NavLink>
       </nav>
 
       <div className="sidebar__footer">

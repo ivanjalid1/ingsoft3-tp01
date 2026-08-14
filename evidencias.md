@@ -157,17 +157,20 @@ estado terminal.
 ![tests de backend](img/16-tests-backend.png)
 
 > **PENDIENTE.** Correr `cd backend` y `npm test`, capturar la terminal en verde
-> (52 tests).
+> (56 tests).
 
 ![tests de frontend](img/17-tests-frontend.png)
 
 > **PENDIENTE.** Correr `cd frontend` y `npm test`, capturar la terminal en verde
-> (13 tests).
+> (15 tests).
 
 Los tests de backend corren **sin MySQL levantado**: la capa `models/` está
-mockeada con `vi.mock`. Son 52 casos en total (13 en frontend); el TP5 exige un
-subconjunto de 8 backend + 4 frontend — el detalle de cuáles está en
-`README.md` y en `decisiones.md`.
+mockeada con `vi.mock`. Son **71 casos en total: 56 de backend y 15 de
+frontend**. Los 12 que exige el TP5 (8 de backend, uno por regla de negocio, y
+4 de frontend) son un **subconjunto** de esos 71, identificado con un comentario
+en el código de cada test; el detalle de cuál es cuál está en `README.md` y en
+`decisiones.md`. Los otros 59 son cobertura adicional: casos límite, validación
+de entorno, formato de error, ABM de clientes.
 
 ## 12. Los tres contenedores corriendo
 

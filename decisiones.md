@@ -108,11 +108,23 @@ revisión de código independiente de cada tarea.
 | 17 | Vitest en backend y frontend | Jest en el back + Vitest en el front | Un solo runner que aprender y explicar. Vitest es nativo de Vite (JSX sin configurar) y corre ESM en Node sin ceremonia. |
 | 18 | Tests de backend con `models/` mockeado, **sin MySQL** | Base de test real o Testcontainers | El pipeline del TP4 se reduce a `npm ci && npm test`. Tests deterministas y rápidos. La verificación del SQL real llega en el e2e del TP6: cada nivel de la pirámide cubre lo suyo. |
 | 19 | `backend/Dockerfile` de una sola etapa, copiando `package*.json` antes que `src/` | `COPY . .` antes del `npm ci` | El backend no compila, no necesita multi-stage. El orden de copiado hace que la capa de `npm ci` solo se invalide cuando cambian las dependencias, no en cada edición de código. |
-| 20 | `frontend/Dockerfile` multi-stage (Node builda → nginx sirve) | Servir el frontend con Node en producción | La imagen final no lleva Node ni `node_modules`: ~25 MB contra ~400 MB, y muchísima menos superficie de ataque para el TP9. |
+| 20 | `frontend/Dockerfile` multi-stage (Node builda → nginx sirve) | Servir el frontend con Node en producción | La imagen final no lleva Node ni `node_modules`, y por eso pesa **93 MB** contra los **212 MB** del backend, que sí los lleva. Muchísima menos superficie de ataque para el TP9: lo que no está en la imagen no se puede explotar (ver la nota de abajo y la decisión 26). |
 | 21 | `healthcheck` en `db` + `depends_on: condition: service_healthy` | `depends_on: [db]` a secas | `depends_on` solo espera a que el contenedor arranque, no a que MySQL acepte conexiones. Sin healthcheck el backend muere en el primer `docker compose up`. |
 | 22 | Volumen nombrado `db_data` + `init.sql` en `/docker-entrypoint-initdb.d/` | Sembrar con un script manual después de levantar | La imagen oficial ejecuta el `.sql` sola en el primer arranque. Un comando (`docker compose up`) y el sistema queda usable. |
 | 23 | El backend no publica puertos al host | `ports: "3000:3000"` | Menos superficie expuesta y obliga a que el proxy funcione de verdad, en vez de que el frontend le pegue directo por casualidad. |
 | 24 | `decisiones.md` y `evidencias.md` desde el primer commit | Documentar al final | El §6 del reglamento pide uso de IA declarado, verificado y defendible. Documentar al final es reconstruir de memoria: se pierden las alternativas descartadas, que son la mitad de la defensa. |
+
+> **Corrección de la decisión 20 — el número era una estimación de diseño.** La
+> versión original de esta tabla (copiada del spec, escrita antes de construir
+> nada) decía "~25 MB contra ~400 MB". Cuando se midió de verdad, con
+> `docker images` sobre las imágenes construidas, dio **93 MB** el frontend y
+> **212 MB** el backend. El número se corrigió arriba y el argumento se reescribió
+> con los datos reales, que sostienen la decisión igual: la imagen del frontend
+> pesa **menos de la mitad** que la del backend precisamente porque no lleva
+> Node ni `node_modules`, y de sus 93 MB la enorme mayoría es la base
+> `nginx:alpine` — el `dist/` de Vite son unos pocos MB encima. Los ~25 MB
+> originales subestimaban la base. Se deja la corrección declarada en vez de
+> reescribir la historia: estimé, medí, y mandó la medición.
 
 ## 2. Decisiones tomadas durante la implementación
 
@@ -130,6 +142,12 @@ una revisión de código que encontró algo que el spec no había previsto.
 | 31 | JWT sin verificación de existencia del usuario en cada request | Consultar la base en el middleware de auth en cada request | Es stateless por diseño (decisión 11). El costo conocido: un token vigente de un usuario que se borró sigue pasando el middleware hasta que expira, hasta 8 horas. No hay revocación. Se documenta para no improvisar la respuesta si sale el tema en la defensa. |
 | 32 | Health check en `GET /health`, fuera de `/api` | `GET /api/health` público | Si el health check viviera bajo `/api`, la regla "todo `/api` pide token salvo `/api/auth/login`" necesitaría una excepción más para no exigirle JWT a un healthcheck de Docker. Sacarlo de `/api` deja la regla sin excepciones. |
 | 33 | Node 20 fijado en la imagen (`node:20-alpine`), aunque el desarrollo corrió sobre Node 24 | Igualar la versión local a la de la imagen antes de continuar | Lo que se evalúa y se despliega es la imagen, no la máquina del alumno. `node:20-alpine` es la que fija la versión de verdad en el build reproducible; la versión de desarrollo no interviene. |
+| 34 | El backend corre como `USER node` (uid 1000), y el cambio de usuario va **antes** del `npm ci` | Dejarlo como root, que es el default de la imagen | "¿Por qué tu contenedor corre como root?" es una pregunta cantada del TP9 (DevSecOps), y la imagen oficial ya trae el usuario `node`: no hay que crear nada. Cambiar de usuario antes del `npm ci` hace que ni siquiera `node_modules` quede escrito por root, así que no queda un solo archivo del proyecto con dueño root dentro de la imagen. Se verificó con `docker compose exec backend whoami`. |
+| 35 | El **frontend sigue corriendo como root**, a propósito y declarado | Aplicarle el mismo `USER` que al backend | nginx necesita root para bindear el puerto 80; correrlo sin privilegios obliga a cambiar el puerto a uno > 1024, reescribir el `nginx.conf`, mover los directorios de `pid`/`cache`/logs a rutas escribibles y reajustar el mapeo de puertos del compose. Es desproporcionado para lo que compra en este TP. La diferencia con el backend es real: nginx **baja de privilegios** los procesos worker (el master queda como root solo para bindear), mientras que el proceso de Node corría como root de punta a punta. Se documenta como limitación conocida, no se omite. |
+| 36 | El healthcheck de `db` pinguea por **TCP** (`-h 127.0.0.1`), no por socket (`-h localhost`) | Dejar `-h localhost`, que "funcionaba" | Durante la inicialización, la imagen `mysql:8` levanta un servidor **temporal** con `--skip-networking` para ejecutar los scripts de `/docker-entrypoint-initdb.d/`. Ese servidor contesta el ping por socket Unix, así que compose podía marcar `db` como healthy **antes** de que el 3306 real escuchara, y el backend arrancaba contra una base que todavía no estaba. Es el clásico "anda en mi máquina y falla en una más lenta". Por TCP, el ping solo responde cuando escucha el servidor definitivo, que es la condición que el `depends_on: service_healthy` necesita de verdad. |
+| 37 | Un body con JSON malformado devuelve **400 DATOS_INVALIDOS**, no 500 | Dejar que el `SyntaxError` de body-parser caiga al branch genérico | El `SyntaxError` que lanza `express.json()` no es un `AppError` y salía como `500 ERROR_INTERNO`. Un JSON mal armado es un error del **cliente** y es previsible: le corresponde el mismo 400 y el mismo `code` que a cualquier otro dato inválido. Dejarlo en 500 contradecía el principio aplicado en todo el resto del proyecto ("lo previsible no sale 500") y hacía ruido en los logs por culpa de quien llama, no del servidor. No lo dispara la SPA, que siempre manda `JSON.stringify` válido, pero sí cualquiera con `curl`. La traducción vive donde tiene que vivir: en `errorHandler.js`, el único traductor error → JSON del backend. |
+| 38 | El test que verifica el arranque sin env vars corre el proceso hijo en un **directorio temporal vacío** | Dejarlo heredando el cwd de vitest (`backend/`) | `config/env.js` empieza con `import 'dotenv/config'`, y dotenv lee `path.resolve(process.cwd(), '.env')`. Con el cwd heredado, el `backend/.env` que el propio README manda crear le reponía la variable borrada al hijo y el proceso salía con código 0: el test pasaba a fallar en la máquina de cualquiera que hubiera seguido las instrucciones del README. Con un cwd vacío no hay `.env` que leer y el test mide lo que dice medir. Verificado corriendo la suite completa **con** `backend/.env` presente y **sin** él: 56/56 en las dos. |
+| 39 | `api/client.js` degrada a `null` un cuerpo de respuesta que no es JSON, en vez de dejar reventar el `JSON.parse` | Confiar en que la respuesta siempre es JSON, porque el backend siempre manda JSON | El backend siempre manda JSON, pero **quien contesta puede no ser el backend**: si nginx no lo alcanza devuelve su propia página `502 Bad Gateway` en HTML, y `JSON.parse('<html>…')` tiraba un `SyntaxError: Unexpected token '<'` crudo en la pantalla del usuario. Con la guarda, un error de infraestructura sale por el mismo camino que cualquier otro error de la app —un `ApiError` con el status real— y el contrato del cliente de API queda intacto en todos los caminos. |
 
 La decisión 24 de la sección 1 (`decisiones.md` y `evidencias.md` desde el primer
 commit) sigue vigente sin cambios: este mismo archivo, ampliado por fecha en vez de
@@ -137,14 +155,28 @@ reescrito, es la prueba.
 
 ## 3. Los números de tests, sin inflar
 
-`npm test` da **52 casos en backend** y **13 en frontend**: 65 en total. El TP5
-exige un subconjunto identificado de esos 65 — **8 de backend** (uno por regla de
-negocio, tabla en `README.md`) y **4 de frontend** — pero los 65 son reales y corren
+`npm test` da **56 casos en backend** y **15 en frontend**: 71 en total. El TP5
+exige un subconjunto identificado de esos 71 — **8 de backend** (uno por regla de
+negocio, tabla en `README.md`) y **4 de frontend** — pero los 71 son reales y corren
 en verde; el resto se sumó porque el ciclo TDD del plan pedía un test por cada
 función antes de escribirla (validación de entorno, casos límite como
 `precio === 0`, ABM de clientes, formato de error, etc.). Decir "12 tests" o
 "8 tests" acá sería impreciso: la corrida real tiene más casos que esos, y decir
 menos de los que hay es tan poco defendible como inflar el número.
+
+Los últimos 6 casos entraron en la tanda de arreglos previa al PR y cubren huecos
+que la revisión final encontró: el redondeo de dinero con precios con **centavos**
+(los otros fixtures usaban precios enteros, así que la función `redondear` no la
+ejercitaba nadie), el `409 EMAIL_DUPLICADO` de `PUT /api/clientes/:id` (una regla
+del §9.2 del spec que no verificaba ningún test), el `400` ante un body con JSON
+malformado (decisión 37) y la guarda del cliente de API ante una respuesta que no
+es JSON (decisión 39).
+
+Este archivo, `README.md` y `evidencias.md` dicen **los mismos números**. Antes de
+esta tanda no era así —`evidencias.md` decía "52 en total" y esta tabla decía
+"~25 MB" para una imagen de 93— y una contradicción entre dos documentos del mismo
+repositorio es material de pregunta en la mesa. Se corrigieron los tres a la vez y
+se re-corrieron las dos suites para confirmar los números que quedaron escritos.
 
 ## 4. Declaración de uso de IA (§6 del reglamento)
 
@@ -177,7 +209,7 @@ afirmación de este repositorio es cierta.
 **Cómo lo verifiqué.** No acepté el resultado de la IA por reporte, lo comprobé
 contra la ejecución:
 
-- Los 65 tests corren y pasan: `npm test` en `backend/` y en `frontend/` (detalle
+- Los 71 tests corren y pasan: `npm test` en `backend/` y en `frontend/` (detalle
   de los que exige el TP5 en la sección 3 de este archivo).
 - Los tres contenedores levantan con `docker compose up -d --build` y la app
   responde en `http://localhost:8080`.

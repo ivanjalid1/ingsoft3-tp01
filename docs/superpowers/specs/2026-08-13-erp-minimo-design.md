@@ -33,6 +33,19 @@ Lo que la cátedra exige y que acá se traduce en restricciones duras:
 | Auth | `jsonwebtoken` (HS256) + `bcrypt` | Estándar, dos dependencias, cero framework de auth. |
 | Tests | Vitest (backend y frontend) + supertest + React Testing Library | Un solo runner que aprender, mismo `describe/it/expect` de los dos lados. |
 
+> **Nota posterior a la implementación — el proyecto usa `bcryptjs`, no `bcrypt`.**
+> Este documento es el diseño previo y se deja **sin reescribir**: la fila de
+> arriba dice `bcrypt` porque eso era lo planificado. Durante la implementación
+> se cambió a **`bcryptjs`** (JS puro, misma API `hash`/`compare`, mismo cost 10)
+> por dos razones: (a) `bcrypt` arrastra `@mapbox/node-pre-gyp → tar`, con 1 CVE
+> **crítico** y 1 alto en dependencias de producción según `npm audit --omit=dev`,
+> y el TP9 es DevSecOps — arrancar con un crítico en la imagen es empezar en
+> contra; y (b) `bcrypt` es un módulo **nativo** y compilarlo en `node:20-alpine`
+> obliga a meter `build-base`, `python3` y `make` en la imagen, lo contrario del
+> objetivo de imagen liviana de la §12. Tras el cambio, `npm audit --omit=dev` da
+> 0 vulnerabilidades. Queda registrado como **decisión 25** en `decisiones.md`.
+> Vale para las dos menciones de este documento: esta y la de la §7.
+
 ### 2.1 Por qué SQL a mano y no un ORM
 
 Un ORM (Sequelize, Prisma, TypeORM) ahorraría escribir INSERTs, pero en esta materia el costo supera al beneficio:
@@ -400,6 +413,16 @@ Se descartó explícitamente un estado `confirmada` o `entregada`: no agrega nad
 - **Endpoint:** `POST /api/auth/login`. Recibe `{ email, password }`, busca el usuario, compara con `bcrypt.compare(password, password_hash)`.
 - **Token:** JWT **HS256**, firmado con `JWT_SECRET`, expiración **8 horas**. Payload mínimo: `{ sub: usuario.id, email }`. Nada de datos sensibles adentro — un JWT está firmado, no cifrado, y cualquiera puede leerlo.
 - **Hash:** `bcrypt` con **cost 10**. Suficiente para la materia y rápido en tests.
+  > **Nota posterior a la implementación:** lo implementado es **`bcryptjs`**, no
+  > `bcrypt` — misma API (`hash`/`compare`), mismo cost 10, mismo formato de hash
+  > de 60 caracteres, así que todo lo que dice esta sección (incluido
+  > `password_hash VARCHAR(60)` de la §5) sigue siendo exacto. El cambio se
+  > decidió **durante la implementación**, por los CVEs de producción que arrastra
+  > `bcrypt` vía `@mapbox/node-pre-gyp → tar` y por no tener que meter un
+  > toolchain de compilación C en la imagen alpine. El detalle está en la nota de
+  > la §2 y en la **decisión 25** de `decisiones.md`. El texto original se deja
+  > como estaba: este documento es el diseño previo, y la corrección se declara en
+  > vez de borrarse.
 - **Middleware:** `middlewares/auth.js` valida el header `Authorization: Bearer <token>` en **todo `/api`** salvo `/api/auth/login`. Se monta una sola vez en `routes/index.js`, no endpoint por endpoint — así no se puede olvidar de proteger uno nuevo.
   - Sin header o mal formado → `401 TOKEN_FALTANTE`
   - Token inválido o vencido → `401 TOKEN_INVALIDO`

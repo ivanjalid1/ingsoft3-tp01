@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import Nav from '../components/Nav.jsx';
 import { useRecurso } from '../hooks/useRecurso.js';
 
 const FORMULARIO_VACIO = { id: null, nombre: '', email: '', telefono: '' };
@@ -57,68 +56,94 @@ export default function Clientes() {
 
   return (
     <>
-      <Nav />
-      <main className="contenedor">
-        <h1>Clientes</h1>
+      <h1>Clientes</h1>
 
-        <form onSubmit={manejarSubmit}>
-          <label htmlFor="nombre">Nombre</label>
-          <input
-            id="nombre"
-            value={formulario.nombre}
-            onChange={(e) => cambiar('nombre', e.target.value)}
-          />
+      <div className="card">
+        <div className="card__header">
+          {formulario.id === null ? 'Nuevo cliente' : `Editando #${formulario.id}`}
+        </div>
+        <div className="card__body">
+          <form onSubmit={manejarSubmit}>
+            <div className="campo--fila">
+              <div className="campo">
+                <label htmlFor="nombre">Nombre</label>
+                <input
+                  id="nombre"
+                  value={formulario.nombre}
+                  onChange={(e) => cambiar('nombre', e.target.value)}
+                />
+              </div>
 
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            value={formulario.email}
-            onChange={(e) => cambiar('email', e.target.value)}
-          />
+              <div className="campo">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  value={formulario.email}
+                  onChange={(e) => cambiar('email', e.target.value)}
+                />
+              </div>
 
-          <label htmlFor="telefono">Teléfono</label>
-          <input
-            id="telefono"
-            value={formulario.telefono}
-            onChange={(e) => cambiar('telefono', e.target.value)}
-          />
+              <div className="campo">
+                <label htmlFor="telefono">Teléfono</label>
+                <input
+                  id="telefono"
+                  className="mono"
+                  value={formulario.telefono}
+                  onChange={(e) => cambiar('telefono', e.target.value)}
+                />
+              </div>
+            </div>
 
-          {error && <p role="alert" className="error">{error}</p>}
+            {error && <p role="alert" className="error">{error}</p>}
 
-          <div>
-            <button type="submit">Guardar</button>
-            {formulario.id !== null && (
-              <button type="button" onClick={() => setFormulario(FORMULARIO_VACIO)}>
-                Cancelar
-              </button>
-            )}
+            <div className="acciones-form">
+              <button type="submit" className="btn--primary">Guardar</button>
+              {formulario.id !== null && (
+                <button type="button" onClick={() => setFormulario(FORMULARIO_VACIO)}>
+                  Cancelar
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div className="card">
+        {clientes.length === 0 ? (
+          <div className="estado-vacio">
+            <strong>No hay clientes cargados</strong>
+            <span>Creá el primero con el formulario de arriba.</span>
           </div>
-        </form>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>Email</th>
-              <th>Teléfono</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clientes.map((cliente) => (
-              <tr key={cliente.id}>
-                <td>{cliente.nombre}</td>
-                <td>{cliente.email}</td>
-                <td>{cliente.telefono}</td>
-                <td>
-                  <button type="button" onClick={() => editar(cliente)}>Editar</button>
-                  <button type="button" onClick={() => darDeBaja(cliente.id)}>Dar de baja</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </main>
+        ) : (
+          <div className="tabla-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Teléfono</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientes.map((cliente) => (
+                  <tr key={cliente.id}>
+                    <td>{cliente.nombre}</td>
+                    <td>{cliente.email}</td>
+                    <td className="num">{cliente.telefono}</td>
+                    <td>
+                      <div className="acciones-form">
+                        <button type="button" onClick={() => editar(cliente)}>Editar</button>
+                        <button type="button" className="btn--danger" onClick={() => darDeBaja(cliente.id)}>Dar de baja</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </>
   );
 }

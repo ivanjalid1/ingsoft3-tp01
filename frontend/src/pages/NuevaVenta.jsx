@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { get, post } from '../api/client.js';
-import Nav from '../components/Nav.jsx';
 
 // Misma regla que ventaService.redondear() en el backend: redondear a dos
 // decimales después de cada operación evita que un binario tipo 0.1 + 0.2 se
@@ -125,68 +124,93 @@ export default function NuevaVenta() {
 
   return (
     <>
-      <Nav />
-      <main className="contenedor">
-        <h1>Nueva venta</h1>
+      <h1>Nueva venta</h1>
 
-        <label htmlFor="cliente">Cliente</label>
-        <select id="cliente" value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
-          <option value="">Elegí un cliente</option>
-          {clientes.map((cliente) => (
-            <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
-          ))}
-        </select>
+      <div className="card">
+        <div className="card__header">Agregar línea</div>
+        <div className="card__body">
+          <div className="campo--fila">
+            <div className="campo">
+              <label htmlFor="cliente">Cliente</label>
+              <select id="cliente" value={clienteId} onChange={(e) => setClienteId(e.target.value)}>
+                <option value="">Elegí un cliente</option>
+                {clientes.map((cliente) => (
+                  <option key={cliente.id} value={cliente.id}>{cliente.nombre}</option>
+                ))}
+              </select>
+            </div>
 
-        <label htmlFor="producto">Producto</label>
-        <select id="producto" value={productoId} onChange={(e) => setProductoId(e.target.value)}>
-          <option value="">Elegí un producto</option>
-          {productos.map((producto) => (
-            <option key={producto.id} value={producto.id}>{producto.nombre}</option>
-          ))}
-        </select>
+            <div className="campo">
+              <label htmlFor="producto">Producto</label>
+              <select id="producto" value={productoId} onChange={(e) => setProductoId(e.target.value)}>
+                <option value="">Elegí un producto</option>
+                {productos.map((producto) => (
+                  <option key={producto.id} value={producto.id}>{producto.nombre}</option>
+                ))}
+              </select>
+            </div>
 
-        <label htmlFor="cantidad">Cantidad</label>
-        <input id="cantidad" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
+            <div className="campo">
+              <label htmlFor="cantidad">Cantidad</label>
+              <input id="cantidad" className="mono" value={cantidad} onChange={(e) => setCantidad(e.target.value)} />
+            </div>
 
-        <button type="button" onClick={agregar}>Agregar</button>
+            <button type="button" className="btn--primary" onClick={agregar}>Agregar</button>
+          </div>
 
-        {error && <p role="alert" className="error">{error}</p>}
+          {error && <p role="alert" className="error">{error}</p>}
+        </div>
+      </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Producto</th>
-              <th>Cantidad</th>
-              <th>Precio</th>
-              <th>Subtotal</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {carrito.map((linea, indice) => (
-              <tr key={linea.producto_id}>
-                <td>{linea.nombre}</td>
-                <td>{linea.cantidad}</td>
-                <td>{linea.precio_unitario.toFixed(2)}</td>
-                <td>{linea.subtotal.toFixed(2)}</td>
-                <td>
-                  <button type="button" onClick={() => quitar(indice)}>
-                    {`Quitar ${linea.nombre}`}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="card">
+        {carrito.length === 0 ? (
+          <div className="estado-vacio">
+            <strong>El carrito está vacío</strong>
+            <span>Elegí un producto y una cantidad para agregarlo.</span>
+          </div>
+        ) : (
+          <div className="tabla-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Cantidad</th>
+                  <th>Precio</th>
+                  <th>Subtotal</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {carrito.map((linea, indice) => (
+                  <tr key={linea.producto_id}>
+                    <td>{linea.nombre}</td>
+                    <td className="num">{linea.cantidad}</td>
+                    <td className="num">{linea.precio_unitario.toFixed(2)}</td>
+                    <td className="num">{linea.subtotal.toFixed(2)}</td>
+                    <td>
+                      <button type="button" onClick={() => quitar(indice)}>
+                        {`Quitar ${linea.nombre}`}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-        <p className="total">
-          Total: <span data-testid="total-carrito">{total.toFixed(2)}</span>
-        </p>
+      <div className="card">
+        <div className="card__body card__body--fila">
+          <p className="total">
+            Total: <span className="mono" data-testid="total-carrito">{total.toFixed(2)}</span>
+          </p>
 
-        <button type="button" onClick={confirmar} disabled={carrito.length === 0}>
-          Confirmar venta
-        </button>
-      </main>
+          <button type="button" className="btn--primary" onClick={confirmar} disabled={carrito.length === 0}>
+            Confirmar venta
+          </button>
+        </div>
+      </div>
     </>
   );
 }

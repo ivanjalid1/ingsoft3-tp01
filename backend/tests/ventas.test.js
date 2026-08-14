@@ -213,6 +213,132 @@ describe('POST /api/ventas', () => {
     expect(ventaModel.obtenerConexion).not.toHaveBeenCalled();
   });
 
+  // El candado del `conn`: si alguien pasara null acá, el SELECT ... FOR UPDATE
+  // correría por el pool, no tomaría el lock dentro de la transacción, y toda
+  // la protección de concurrencia desaparecería sin que ningún test lo note.
+  it('pasa la conexión de la transacción a TODAS las funciones de model que participan', async () => {
+    productoModel.buscarPorIdParaActualizar
+      .mockResolvedValueOnce(TECLADO)
+      .mockResolvedValueOnce(MONITOR);
+    ventaModel.crearCabecera.mockResolvedValue(7);
+    ventaModel.crearItem.mockResolvedValue(1);
+    ventaModel.buscarCabecera.mockResolvedValue({
+      id: 7, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+      fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([]);
+
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({
+        cliente_id: 1,
+        items: [
+          { producto_id: 1, cantidad: 2 },
+          { producto_id: 2, cantidad: 1 }
+        ]
+      });
+
+    expect(respuesta.status).toBe(201);
+    expect(productoModel.buscarPorIdParaActualizar).toHaveBeenNthCalledWith(1, conn, 1);
+    expect(productoModel.buscarPorIdParaActualizar).toHaveBeenNthCalledWith(2, conn, 2);
+    expect(ventaModel.crearCabecera).toHaveBeenCalledWith(conn, 1, 210000);
+    expect(ventaModel.crearItem).toHaveBeenNthCalledWith(1, conn, 7, expect.anything());
+    expect(productoModel.descontarStock).toHaveBeenNthCalledWith(1, conn, 1, 2);
+  });
+
+  // Un producto repetido se consolida: una sola lectura, una sola validación
+  // de stock y un solo venta_items con la cantidad sumada.
+  it('consolida dos líneas del mismo producto en una sola con la cantidad sumada', async () => {
+    productoModel.buscarPorIdParaActualizar.mockResolvedValueOnce(TECLADO); // stock 20
+    ventaModel.crearCabecera.mockResolvedValue(9);
+    ventaModel.crearItem.mockResolvedValue(1);
+    ventaModel.buscarCabecera.mockResolvedValue({
+      id: 9, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+      fecha: '2026-08-13T14:22:05.000Z', total: 75000, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([
+      { id: 1, producto_id: 1, producto_nombre: 'Teclado', cantidad: 5, precio_unitario: 15000, subtotal: 75000 }
+    ]);
+
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({
+        cliente_id: 1,
+        items: [
+          { producto_id: 1, cantidad: 3 },
+          { producto_id: 1, cantidad: 2 }
+        ]
+      });
+
+    expect(respuesta.status).toBe(201);
+    // El producto se leyó (y bloqueó) una sola vez.
+    expect(productoModel.buscarPorIdParaActualizar).toHaveBeenCalledTimes(1);
+    // Un solo ítem persistido, con 3 + 2 = 5 unidades.
+    expect(ventaModel.crearItem).toHaveBeenCalledTimes(1);
+    expect(ventaModel.crearItem).toHaveBeenCalledWith(conn, 9, {
+      producto_id: 1, cantidad: 5, precio_unitario: 15000, subtotal: 75000
+    });
+    // Y un solo descuento de stock, por la cantidad total.
+    expect(productoModel.descontarStock).toHaveBeenCalledTimes(1);
+    expect(productoModel.descontarStock).toHaveBeenCalledWith(conn, 1, 5);
+    expect(ventaModel.crearCabecera).toHaveBeenCalledWith(conn, 1, 75000);
+  });
+
+  it('rechaza con 409 STOCK_INSUFICIENTE si la suma de líneas repetidas supera el stock', async () => {
+    // Stock 5, pide 3 + 3 = 6. Antes cada línea se validaba por separado
+    // contra el mismo stock 5 y la venta pasaba, dejando el stock en -1.
+    productoModel.buscarPorIdParaActualizar.mockResolvedValueOnce({ ...MONITOR, stock: 5 });
+
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({
+        cliente_id: 1,
+        items: [
+          { producto_id: 2, cantidad: 3 },
+          { producto_id: 2, cantidad: 3 }
+        ]
+      });
+
+    expect(respuesta.status).toBe(409);
+    expect(respuesta.body.error.code).toBe('STOCK_INSUFICIENTE');
+    expect(productoModel.descontarStock).not.toHaveBeenCalled();
+    expect(ventaModel.crearCabecera).not.toHaveBeenCalled();
+    expect(conn.rollback).toHaveBeenCalledTimes(1);
+  });
+
+  // Orden de locks determinista: el cliente manda 2 y después 1, pero los
+  // productos se bloquean siempre de menor a mayor producto_id.
+  it('bloquea los productos ordenados por producto_id, no en el orden del request', async () => {
+    productoModel.buscarPorIdParaActualizar
+      .mockResolvedValueOnce(TECLADO)   // id 1, se lee primero aunque vino segundo
+      .mockResolvedValueOnce(MONITOR);  // id 2
+    ventaModel.crearCabecera.mockResolvedValue(10);
+    ventaModel.crearItem.mockResolvedValue(1);
+    ventaModel.buscarCabecera.mockResolvedValue({
+      id: 10, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+      fecha: '2026-08-13T14:22:05.000Z', total: 195000, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([]);
+
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({
+        cliente_id: 1,
+        items: [
+          { producto_id: 2, cantidad: 1 },
+          { producto_id: 1, cantidad: 1 }
+        ]
+      });
+
+    expect(respuesta.status).toBe(201);
+    expect(productoModel.buscarPorIdParaActualizar).toHaveBeenNthCalledWith(1, conn, 1);
+    expect(productoModel.buscarPorIdParaActualizar).toHaveBeenNthCalledWith(2, conn, 2);
+  });
+
   it('rechaza con 400 DATOS_INVALIDOS si items no es un array', async () => {
     const respuesta = await request(app)
       .post('/api/ventas')

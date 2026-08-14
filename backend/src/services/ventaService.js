@@ -2,7 +2,7 @@ import { AppError } from '../utils/AppError.js';
 import * as ventaModel from '../models/ventaModel.js';
 import * as clienteModel from '../models/clienteModel.js';
 import * as productoModel from '../models/productoModel.js';
-import { validarId } from './validaciones.js';
+import { validarId, esEnteroPositivo } from './validaciones.js';
 
 // Los montos vienen de DECIMAL(10,2). Redondear a dos decimales después
 // de cada operación evita que un 0.1 + 0.2 binario se cuele en el total.
@@ -22,7 +22,7 @@ async function revertir(conn) {
 }
 
 function validarForma(clienteId, items) {
-  if (!Number.isInteger(clienteId) || clienteId <= 0) {
+  if (!esEnteroPositivo(clienteId)) {
     throw new AppError(400, 'DATOS_INVALIDOS', 'cliente_id debe ser un número entero positivo');
   }
   if (!Array.isArray(items)) {
@@ -38,10 +38,10 @@ function validarForma(clienteId, items) {
     if (item === null || typeof item !== 'object' || Array.isArray(item)) {
       throw new AppError(400, 'DATOS_INVALIDOS', 'Cada ítem debe ser un objeto con producto_id y cantidad');
     }
-    if (!Number.isInteger(item.producto_id) || item.producto_id <= 0) {
+    if (!esEnteroPositivo(item.producto_id)) {
       throw new AppError(400, 'DATOS_INVALIDOS', 'producto_id debe ser un número entero positivo');
     }
-    if (!Number.isInteger(item.cantidad) || item.cantidad <= 0) {
+    if (!esEnteroPositivo(item.cantidad)) {
       throw new AppError(
         400, 'CANTIDAD_INVALIDA',
         `Cantidad inválida para el producto ${item.producto_id}`

@@ -187,6 +187,68 @@ describe('POST /api/ventas', () => {
     expect(conn.release).toHaveBeenCalledTimes(1);
   });
 
+  // ── Cálculo con decimales: lo que ejercita redondear() ─────────
+  // Los otros fixtures usan precios enteros, así que si `redondear` devolviera
+  // el monto a secas la suite seguiría en verde. Acá los dos productos tienen
+  // centavos y las dos operaciones (multiplicación por línea y acumulación del
+  // total) caen en un binario que NO es exacto:
+  //   3 × 9500.55 = 28501.649999999998  → 28501.65
+  //   6 × 100.01  =   600.0600000000001 →   600.06
+  //   28501.65 + 600.06 = 29101.710000000003 → 29101.71
+  // Sin el redondeo, la cabecera se guardaría con 29101.710000000003 y MySQL lo
+  // truncaría a DECIMAL(10,2) por su cuenta: el total dejaría de ser idéntico a
+  // la suma de los subtotales persistidos.
+  it('redondea a dos decimales cada subtotal y el total, con precios con centavos', async () => {
+    const TECLADO_CENTAVOS = { id: 1, nombre: 'Teclado', precio: 9500.55, stock: 20 };
+    const MOUSE_CENTAVOS = { id: 2, nombre: 'Mouse', precio: 100.01, stock: 20 };
+
+    productoModel.buscarPorIdParaActualizar
+      .mockResolvedValueOnce(TECLADO_CENTAVOS)
+      .mockResolvedValueOnce(MOUSE_CENTAVOS);
+    ventaModel.crearCabecera.mockResolvedValue(11);
+    ventaModel.crearItem.mockResolvedValue(1);
+    ventaModel.buscarCabecera.mockResolvedValue({
+      id: 11, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+      fecha: '2026-08-13T14:22:05.000Z', total: 29101.71, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([]);
+
+    const respuesta = await request(app)
+      .post('/api/ventas')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({
+        cliente_id: 1,
+        items: [
+          { producto_id: 1, cantidad: 3 },
+          { producto_id: 2, cantidad: 6 }
+        ]
+      });
+
+    expect(respuesta.status).toBe(201);
+
+    // Cada subtotal, redondeado a dos decimales.
+    expect(ventaModel.crearItem).toHaveBeenNthCalledWith(1, conn, 11, {
+      producto_id: 1, cantidad: 3, precio_unitario: 9500.55, subtotal: 28501.65
+    });
+    expect(ventaModel.crearItem).toHaveBeenNthCalledWith(2, conn, 11, {
+      producto_id: 2, cantidad: 6, precio_unitario: 100.01, subtotal: 600.06
+    });
+
+    // Y el total de la cabecera: idénticamente la suma de esos subtotales,
+    // redondeada. `toHaveBeenCalledWith` compara con Object.is, así que un
+    // 29101.710000000003 no pasaría.
+    const subtotales = ventaModel.crearItem.mock.calls.map(([, , linea]) => linea.subtotal);
+    const totalRedondeado = Math.round(subtotales.reduce((a, b) => a + b, 0) * 100) / 100;
+    expect(totalRedondeado).toBe(29101.71);
+    expect(ventaModel.crearCabecera).toHaveBeenCalledWith(conn, 1, 29101.71);
+
+    // El candado de todo esto: la suma en punto flotante SIN redondear no da
+    // 29101.71. Si el acumulador dejara de redondear, este test se pone rojo.
+    expect(28501.65 + 600.06).not.toBe(29101.71);
+
+    expect(conn.commit).toHaveBeenCalledTimes(1);
+  });
+
   it('rechaza con 404 PRODUCTO_NO_ENCONTRADO si el producto no existe o está inactivo', async () => {
     productoModel.buscarPorIdParaActualizar.mockResolvedValueOnce(null);
 

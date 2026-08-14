@@ -32,6 +32,15 @@ function validarForma(clienteId, items) {
     throw new AppError(400, 'VENTA_SIN_ITEMS', 'La venta no tiene ítems');
   }
   for (const item of items) {
+    // La forma del ítem se valida antes de leerle una propiedad o de bindearla
+    // en una query: un `null` daría TypeError y un producto_id ausente llegaría
+    // como `undefined` a mysql2. Los dos terminaban en 500 en vez de 400.
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      throw new AppError(400, 'DATOS_INVALIDOS', 'Cada ítem debe ser un objeto con producto_id y cantidad');
+    }
+    if (!Number.isInteger(item.producto_id) || item.producto_id <= 0) {
+      throw new AppError(400, 'DATOS_INVALIDOS', 'producto_id debe ser un número entero positivo');
+    }
     if (!Number.isInteger(item.cantidad) || item.cantidad <= 0) {
       throw new AppError(
         400, 'CANTIDAD_INVALIDA',
@@ -138,7 +147,7 @@ export async function crear(clienteId, items) {
     await conn.commit();
   } catch (err) {
     // Cualquier error deshace todo lo escrito en esta transacción.
-    await conn.rollback();
+    await revertir(conn);
     throw err;
   } finally {
     // Pase lo que pase, la conexión vuelve al pool. Sin esto, después de

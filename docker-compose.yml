@@ -1,0 +1,46 @@
+services:
+  db:
+    image: mysql:8
+    container_name: erp-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: erp
+      MYSQL_USER: erp_user
+      MYSQL_PASSWORD: erp_pass
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    build: ./backend
+    container_name: erp-backend
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: erp_user
+      DB_PASSWORD: erp_pass
+      DB_NAME: erp
+      JWT_SECRET: dev-secret-cambiar-en-prod
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: erp-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:

@@ -1,4 +1,5 @@
 import express from 'express';
+import routes from './routes/index.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { AppError } from './utils/AppError.js';
 
@@ -12,6 +13,8 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
+
+app.use('/api', routes);
 
 // 404 para cualquier ruta que no exista. No arma el JSON acá: delega en
 // errorHandler, que es el único traductor error → JSON de todo el backend.

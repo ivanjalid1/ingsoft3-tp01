@@ -200,4 +200,9 @@ El total `28501.65` no es decorativo: `3 × 9500.55` da `28501.649999999998` en
 punto flotante. Que la respuesta traiga exactamente `28501.65` es la regla de
 redondeo de dinero funcionando contra MySQL real, no contra un mock.
 
-El detalle con las respuestas HTTP completas está en `evidencias.md`.
+Los números de esta tabla son los de **esa corrida**, no un guion a repetir:
+`evidencias.md` documenta el mismo recorrido paso a paso para las capturas de la
+defensa, enunciando en cada una la relación que tiene que probar (que el stock
+baja exactamente en la cantidad vendida, que la anulación lo devuelve a su valor
+previo) en vez de un valor fijo, porque cada persona que lo repita va a hacerlo
+con sus propios datos.

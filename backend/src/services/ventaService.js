@@ -41,6 +41,28 @@ function validarForma(clienteId, items) {
   }
 }
 
+// Agrupa las líneas por producto_id sumando las cantidades, y las devuelve
+// ordenadas por producto_id. Dos cosas de un solo paso:
+//   1) Si el mismo producto viene dos veces, el stock se valida UNA sola vez
+//      contra la cantidad total. Sin esto, las dos líneas leían el mismo stock
+//      (todavía no se escribió nada), las dos pasaban, y el bucle de escritura
+//      descontaba dos veces: la venta se commiteaba con stock negativo.
+//   2) Los locks se toman siempre en el mismo orden, sin importar en qué orden
+//      mandó los ítems el cliente. Dos ventas con los mismos productos en
+//      orden inverso ya no pueden deadlockear.
+function consolidarItems(items) {
+  const cantidadPorProducto = new Map();
+
+  for (const item of items) {
+    const acumulado = cantidadPorProducto.get(item.producto_id) ?? 0;
+    cantidadPorProducto.set(item.producto_id, acumulado + item.cantidad);
+  }
+
+  return [...cantidadPorProducto.entries()]
+    .map(([productoId, cantidad]) => ({ producto_id: productoId, cantidad }))
+    .sort((a, b) => a.producto_id - b.producto_id);
+}
+
 export async function listar() {
   return ventaModel.listar();
 }
@@ -65,42 +87,47 @@ export async function crear(clienteId, items) {
     throw new AppError(404, 'CLIENTE_NO_ENCONTRADO', `No existe el cliente ${clienteId}`);
   }
 
-  // 3) Todo lo que toca stock va adentro de UNA transacción.
+  // 3) Un producto repetido se consolida en una sola línea antes de tocar la
+  // base, así se valida una sola vez contra el stock y los locks se toman
+  // siempre en el mismo orden.
+  const lineas = consolidarItems(items);
+
+  // 4) Todo lo que toca stock va adentro de UNA transacción.
   const conn = await ventaModel.obtenerConexion();
   let ventaId;
 
   try {
     await conn.beginTransaction();
 
-    // 3.a) Primero se leen y bloquean todos los productos y se valida el
+    // 4.a) Primero se leen y bloquean todos los productos y se valida el
     // stock de todos. Recién después se escribe algo. Así, si el ítem 3
     // no tiene stock, los ítems 1 y 2 nunca llegaron a descontarse.
     let total = 0;
     const detalle = [];
 
-    for (const item of items) {
-      const producto = await productoModel.buscarPorIdParaActualizar(conn, item.producto_id);
+    for (const linea of lineas) {
+      const producto = await productoModel.buscarPorIdParaActualizar(conn, linea.producto_id);
 
       if (!producto) {
-        throw new AppError(404, 'PRODUCTO_NO_ENCONTRADO', `No existe el producto ${item.producto_id}`);
+        throw new AppError(404, 'PRODUCTO_NO_ENCONTRADO', `No existe el producto ${linea.producto_id}`);
       }
-      if (item.cantidad > producto.stock) {
-        throw new AppError(409, 'STOCK_INSUFICIENTE', `Stock insuficiente para el producto ${item.producto_id}`);
+      if (linea.cantidad > producto.stock) {
+        throw new AppError(409, 'STOCK_INSUFICIENTE', `Stock insuficiente para el producto ${linea.producto_id}`);
       }
 
       const precioUnitario = producto.precio;              // se congela acá
-      const subtotal = redondear(item.cantidad * precioUnitario);
+      const subtotal = redondear(linea.cantidad * precioUnitario);
       total = redondear(total + subtotal);
 
       detalle.push({
         producto_id: producto.id,
-        cantidad: item.cantidad,
+        cantidad: linea.cantidad,
         precio_unitario: precioUnitario,
         subtotal
       });
     }
 
-    // 3.b) Escrituras.
+    // 4.b) Escrituras.
     ventaId = await ventaModel.crearCabecera(conn, clienteId, total);
 
     for (const linea of detalle) {
@@ -119,7 +146,7 @@ export async function crear(clienteId, items) {
     conn.release();
   }
 
-  // 4) La venta ya está confirmada. Releerla para devolverla es una consulta
+  // 5) La venta ya está confirmada. Releerla para devolverla es una consulta
   // aparte, FUERA de la transacción: si acá fallara algo, no habría un
   // rollback() ejecutándose después del commit().
   return obtener(ventaId);

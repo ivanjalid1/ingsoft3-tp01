@@ -10,6 +10,7 @@ vi.mock('../src/models/ventaModel.js', () => ({
   obtenerConexion: vi.fn(),
   listar: vi.fn(),
   buscarCabecera: vi.fn(),
+  buscarCabeceraParaActualizar: vi.fn(),
   listarItems: vi.fn(),
   crearCabecera: vi.fn(),
   crearItem: vi.fn(),
@@ -263,8 +264,8 @@ describe('POST /api/ventas/:id/anular', () => {
 
   // ── TEST 5 del TP5 — Transición de estado ──────────────────────
   it('anula una venta pendiente, repone el stock de cada ítem y devuelve 200', async () => {
-    ventaModel.buscarCabecera.mockResolvedValue({
-      id: 7, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+    ventaModel.buscarCabeceraParaActualizar.mockResolvedValue({
+      id: 7, cliente_id: 1,
       fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'pendiente'
     });
     ventaModel.listarItems.mockResolvedValue([
@@ -291,10 +292,34 @@ describe('POST /api/ventas/:id/anular', () => {
     expect(conn.release).toHaveBeenCalledTimes(1);
   });
 
+  // El candado del `conn`: si alguna de estas llamadas pasara null, caería al
+  // pool, el FOR UPDATE no tomaría el lock y la transacción perdería su
+  // garantía sin que ningún test se enterara.
+  it('pasa la conexión de la transacción a TODAS las funciones de model que participan', async () => {
+    ventaModel.buscarCabeceraParaActualizar.mockResolvedValue({
+      id: 7, cliente_id: 1,
+      fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([
+      { id: 1, producto_id: 1, producto_nombre: 'Teclado', cantidad: 2, precio_unitario: 15000, subtotal: 30000 }
+    ]);
+    ventaModel.marcarAnulada.mockResolvedValue(1);
+
+    const respuesta = await request(app)
+      .post('/api/ventas/7/anular')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(200);
+    expect(ventaModel.buscarCabeceraParaActualizar).toHaveBeenCalledWith(conn, 7);
+    expect(ventaModel.listarItems).toHaveBeenCalledWith(conn, 7);
+    expect(productoModel.reponerStock).toHaveBeenNthCalledWith(1, conn, 1, 2);
+    expect(ventaModel.marcarAnulada).toHaveBeenCalledWith(conn, 7);
+  });
+
   // ── TEST 6 del TP5 — Transición de estado inválida ─────────────
   it('rechaza con 409 VENTA_YA_ANULADA una venta ya anulada y NO repone stock', async () => {
-    ventaModel.buscarCabecera.mockResolvedValue({
-      id: 7, cliente_id: 1, cliente_nombre: 'Cliente Demo',
+    ventaModel.buscarCabeceraParaActualizar.mockResolvedValue({
+      id: 7, cliente_id: 1,
       fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'anulada'
     });
 
@@ -307,12 +332,39 @@ describe('POST /api/ventas/:id/anular', () => {
     // Lo importante: no se repone stock de más.
     expect(productoModel.reponerStock).not.toHaveBeenCalled();
     expect(ventaModel.marcarAnulada).not.toHaveBeenCalled();
-    // Ni siquiera se abrió una transacción.
-    expect(ventaModel.obtenerConexion).not.toHaveBeenCalled();
+    // El estado se valida bajo el lock, así que la transacción sí se abre;
+    // lo que corresponde es que termine en rollback y nunca en commit.
+    expect(conn.rollback).toHaveBeenCalledTimes(1);
+    expect(conn.commit).not.toHaveBeenCalled();
+    expect(conn.release).toHaveBeenCalledTimes(1);
+  });
+
+  // La carrera perdida: otra anulación commiteó primero, así que el UPDATE
+  // con guarda WHERE estado = 'pendiente' no afecta ninguna fila.
+  it('rechaza con 409 VENTA_YA_ANULADA si marcarAnulada no afecta ninguna fila', async () => {
+    ventaModel.buscarCabeceraParaActualizar.mockResolvedValue({
+      id: 7, cliente_id: 1,
+      fecha: '2026-08-13T14:22:05.000Z', total: 210000, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([
+      { id: 1, producto_id: 1, producto_nombre: 'Teclado', cantidad: 2, precio_unitario: 15000, subtotal: 30000 }
+    ]);
+    ventaModel.marcarAnulada.mockResolvedValue(0);
+
+    const respuesta = await request(app)
+      .post('/api/ventas/7/anular')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(409);
+    expect(respuesta.body.error.code).toBe('VENTA_YA_ANULADA');
+    // La reposición de stock se ejecutó, pero el rollback la deshace entera.
+    expect(conn.rollback).toHaveBeenCalledTimes(1);
+    expect(conn.commit).not.toHaveBeenCalled();
+    expect(conn.release).toHaveBeenCalledTimes(1);
   });
 
   it('devuelve 404 VENTA_NO_ENCONTRADA si la venta no existe', async () => {
-    ventaModel.buscarCabecera.mockResolvedValue(null);
+    ventaModel.buscarCabeceraParaActualizar.mockResolvedValue(null);
 
     const respuesta = await request(app)
       .post('/api/ventas/99/anular')
@@ -320,6 +372,37 @@ describe('POST /api/ventas/:id/anular', () => {
 
     expect(respuesta.status).toBe(404);
     expect(respuesta.body.error.code).toBe('VENTA_NO_ENCONTRADA');
+    expect(productoModel.reponerStock).not.toHaveBeenCalled();
+    expect(conn.rollback).toHaveBeenCalledTimes(1);
+    expect(conn.commit).not.toHaveBeenCalled();
+  });
+
+  it('devuelve 400 DATOS_INVALIDOS con un id no numérico y no abre transacción', async () => {
+    const respuesta = await request(app)
+      .post('/api/ventas/abc/anular')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
+    expect(ventaModel.obtenerConexion).not.toHaveBeenCalled();
+    expect(ventaModel.buscarCabeceraParaActualizar).not.toHaveBeenCalled();
+  });
+
+  // Una venta sin ítems se anula igual, pero no hubo nada que reponer.
+  it('devuelve stock_repuesto: false si la venta no tenía ítems', async () => {
+    ventaModel.buscarCabeceraParaActualizar.mockResolvedValue({
+      id: 8, cliente_id: 1,
+      fecha: '2026-08-13T14:22:05.000Z', total: 0, estado: 'pendiente'
+    });
+    ventaModel.listarItems.mockResolvedValue([]);
+    ventaModel.marcarAnulada.mockResolvedValue(1);
+
+    const respuesta = await request(app)
+      .post('/api/ventas/8/anular')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual({ id: 8, estado: 'anulada', stock_repuesto: false });
     expect(productoModel.reponerStock).not.toHaveBeenCalled();
   });
 });

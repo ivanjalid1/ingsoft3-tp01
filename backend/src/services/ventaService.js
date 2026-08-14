@@ -10,6 +10,17 @@ function redondear(monto) {
   return Math.round(monto * 100) / 100;
 }
 
+// Deshace la transacción sin dejar que un fallo del propio rollback tape el
+// error que la originó: si `rollback()` rechazara, esa rejection reemplazaría
+// al AppError y el cliente vería un 500 genérico en vez de su 409.
+async function revertir(conn) {
+  try {
+    await conn.rollback();
+  } catch (errorDeRollback) {
+    console.error('[error] falló el rollback', errorDeRollback);
+  }
+}
+
 function validarForma(clienteId, items) {
   if (!Number.isInteger(clienteId) || clienteId <= 0) {
     throw new AppError(400, 'DATOS_INVALIDOS', 'cliente_id debe ser un número entero positivo');
@@ -117,39 +128,49 @@ export async function crear(clienteId, items) {
 export async function anular(ventaId) {
   validarId(ventaId);
 
-  // Se valida el estado ANTES de abrir la transacción: si la venta ya está
-  // anulada (o no existe), no hace falta tomar una conexión del pool ni
-  // bloquear ninguna fila.
-  const cabecera = await ventaModel.buscarCabecera(null, ventaId);
-
-  if (!cabecera) {
-    throw new AppError(404, 'VENTA_NO_ENCONTRADA', `No existe la venta ${ventaId}`);
-  }
-  if (cabecera.estado === 'anulada') {
-    throw new AppError(409, 'VENTA_YA_ANULADA', `La venta ${ventaId} ya está anulada`);
-  }
-
   const conn = await ventaModel.obtenerConexion();
+  let huboReposicion = false;
 
   try {
     await conn.beginTransaction();
 
-    // Bucle de lectura: acá no se escribe nada todavía.
+    // 1) La cabecera se lee CON BLOQUEO y dentro de la transacción: el estado
+    // que se valida acá no lo puede cambiar nadie hasta el commit o el
+    // rollback. Validar fuera del lock dejaba pasar dos anulaciones a la vez
+    // y el stock se reponía dos veces.
+    const cabecera = await ventaModel.buscarCabeceraParaActualizar(conn, ventaId);
+
+    if (!cabecera) {
+      throw new AppError(404, 'VENTA_NO_ENCONTRADA', `No existe la venta ${ventaId}`);
+    }
+    if (cabecera.estado === 'anulada') {
+      throw new AppError(409, 'VENTA_YA_ANULADA', `La venta ${ventaId} ya está anulada`);
+    }
+
+    // 2) Bucle de lectura: acá no se escribe nada todavía.
     const items = await ventaModel.listarItems(conn, ventaId);
 
-    // Bucle de escritura: se repone el stock de cada ítem y se marca la venta.
+    // 3) Bucle de escritura: se repone el stock de cada ítem y se marca la venta.
     for (const item of items) {
       await productoModel.reponerStock(conn, item.producto_id, item.cantidad);
     }
-    await ventaModel.marcarAnulada(conn, ventaId);
 
+    // 4) Cinturón además de tirantes: el UPDATE lleva su propia guarda
+    // WHERE estado = 'pendiente'. Si no afectó ninguna fila, otra anulación
+    // ganó la carrera: se deshace todo y se responde el mismo 409.
+    const filasAfectadas = await ventaModel.marcarAnulada(conn, ventaId);
+    if (filasAfectadas === 0) {
+      throw new AppError(409, 'VENTA_YA_ANULADA', `La venta ${ventaId} ya está anulada`);
+    }
+
+    huboReposicion = items.length > 0;
     await conn.commit();
   } catch (err) {
-    await conn.rollback();
+    await revertir(conn);
     throw err;
   } finally {
     conn.release();
   }
 
-  return { id: Number(ventaId), estado: 'anulada', stock_repuesto: true };
+  return { id: Number(ventaId), estado: 'anulada', stock_repuesto: huboReposicion };
 }

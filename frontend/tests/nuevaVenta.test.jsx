@@ -45,7 +45,7 @@ describe('Pantalla de nueva venta', () => {
 
     const boton = await screen.findByRole('button', { name: /confirmar venta/i });
     expect(boton).toBeDisabled();
-    expect(screen.getByTestId('total-carrito')).toHaveTextContent('0.00');
+    expect(screen.getByTestId('total-carrito')).toHaveTextContent('$ 0,00');
   });
 
   // ── TEST 2 del frontend — Cálculo ──────────────────────────────
@@ -62,7 +62,7 @@ describe('Pantalla de nueva venta', () => {
     await usuario.type(screen.getByLabelText(/cantidad/i), '2');
     await usuario.click(screen.getByRole('button', { name: /agregar/i }));
 
-    expect(screen.getByTestId('total-carrito')).toHaveTextContent('30000.00');
+    expect(screen.getByTestId('total-carrito')).toHaveTextContent('$ 30.000,00');
 
     // Línea 2: 1 monitor a 180000 → total 210000
     await usuario.selectOptions(screen.getByLabelText(/producto/i), '2');
@@ -70,7 +70,7 @@ describe('Pantalla de nueva venta', () => {
     await usuario.type(screen.getByLabelText(/cantidad/i), '1');
     await usuario.click(screen.getByRole('button', { name: /agregar/i }));
 
-    expect(screen.getByTestId('total-carrito')).toHaveTextContent('210000.00');
+    expect(screen.getByTestId('total-carrito')).toHaveTextContent('$ 210.000,00');
 
     // Con el carrito lleno, el botón se habilita.
     expect(screen.getByRole('button', { name: /confirmar venta/i })).toBeEnabled();
@@ -85,7 +85,7 @@ describe('Pantalla de nueva venta', () => {
     // renderizando <option>Monitor</option> aunque la línea se haya ido del
     // carrito. Por eso la línea "Monitor" se busca acotada a la tabla del
     // carrito (con `within`), no en todo el documento.
-    expect(screen.getByTestId('total-carrito')).toHaveTextContent('30000.00');
+    expect(screen.getByTestId('total-carrito')).toHaveTextContent('$ 30.000,00');
     expect(within(screen.getByRole('table')).queryByText('Monitor')).not.toBeInTheDocument();
   });
 

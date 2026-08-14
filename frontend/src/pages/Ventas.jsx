@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { get, post } from '../api/client.js';
+import { formatearMonto } from '../utils/formato.js';
 
 export default function Ventas() {
   const [ventas, setVentas] = useState([]);
@@ -63,10 +64,10 @@ export default function Ventas() {
             <table>
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th className="num-header">#</th>
                   <th>Cliente</th>
-                  <th>Fecha</th>
-                  <th>Total</th>
+                  <th className="num-header">Fecha</th>
+                  <th className="num-header">Total</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -77,7 +78,7 @@ export default function Ventas() {
                     <td className="num">{venta.id}</td>
                     <td>{venta.cliente_nombre}</td>
                     <td className="num">{new Date(venta.fecha).toLocaleString('es-AR')}</td>
-                    <td className="num">{venta.total.toFixed(2)}</td>
+                    <td className="num">{formatearMonto(venta.total)}</td>
                     <td>
                       <span className={`pill pill--${venta.estado}`}>{venta.estado}</span>
                     </td>
@@ -112,9 +113,9 @@ export default function Ventas() {
               <thead>
                 <tr>
                   <th>Producto</th>
-                  <th>Cantidad</th>
-                  <th>Precio unitario</th>
-                  <th>Subtotal</th>
+                  <th className="num-header">Cantidad</th>
+                  <th className="num-header">Precio unitario</th>
+                  <th className="num-header">Subtotal</th>
                 </tr>
               </thead>
               <tbody>
@@ -122,8 +123,8 @@ export default function Ventas() {
                   <tr key={item.id}>
                     <td>{item.producto_nombre}</td>
                     <td className="num">{item.cantidad}</td>
-                    <td className="num">{item.precio_unitario.toFixed(2)}</td>
-                    <td className="num">{item.subtotal.toFixed(2)}</td>
+                    <td className="num">{formatearMonto(item.precio_unitario)}</td>
+                    <td className="num">{formatearMonto(item.subtotal)}</td>
                   </tr>
                 ))}
               </tbody>

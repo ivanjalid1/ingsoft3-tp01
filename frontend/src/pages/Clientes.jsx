@@ -121,7 +121,7 @@ export default function Clientes() {
                 <tr>
                   <th>Nombre</th>
                   <th>Email</th>
-                  <th>Teléfono</th>
+                  <th className="num-header">Teléfono</th>
                   <th>Acciones</th>
                 </tr>
               </thead>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { get, post } from '../api/client.js';
+import { formatearMonto } from '../utils/formato.js';
 
 // Misma regla que ventaService.redondear() en el backend: redondear a dos
 // decimales después de cada operación evita que un binario tipo 0.1 + 0.2 se
@@ -181,9 +182,9 @@ export default function NuevaVenta() {
               <thead>
                 <tr>
                   <th>Producto</th>
-                  <th>Cantidad</th>
-                  <th>Precio</th>
-                  <th>Subtotal</th>
+                  <th className="num-header">Cantidad</th>
+                  <th className="num-header">Precio</th>
+                  <th className="num-header">Subtotal</th>
                   <th></th>
                 </tr>
               </thead>
@@ -192,8 +193,8 @@ export default function NuevaVenta() {
                   <tr key={linea.producto_id}>
                     <td>{linea.nombre}</td>
                     <td className="num">{linea.cantidad}</td>
-                    <td className="num">{linea.precio_unitario.toFixed(2)}</td>
-                    <td className="num">{linea.subtotal.toFixed(2)}</td>
+                    <td className="num">{formatearMonto(linea.precio_unitario)}</td>
+                    <td className="num">{formatearMonto(linea.subtotal)}</td>
                     <td>
                       <button
                         type="button"
@@ -214,7 +215,7 @@ export default function NuevaVenta() {
       <div className="card">
         <div className="card__body card__body--fila">
           <p className="total">
-            Total: <span className="mono" data-testid="total-carrito">{total.toFixed(2)}</span>
+            Total: <span className="mono" data-testid="total-carrito">{formatearMonto(total)}</span>
           </p>
 
           <button type="button" className="btn--primary" onClick={confirmar} disabled={carrito.length === 0}>

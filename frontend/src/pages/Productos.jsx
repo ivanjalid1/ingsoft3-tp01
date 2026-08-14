@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRecurso } from '../hooks/useRecurso.js';
+import { formatearMonto } from '../utils/formato.js';
 
 const FORMULARIO_VACIO = { id: null, nombre: '', precio: '', stock: '' };
 
@@ -128,8 +129,8 @@ export default function Productos() {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Precio</th>
-                  <th>Stock</th>
+                  <th className="num-header">Precio</th>
+                  <th className="num-header">Stock</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -137,7 +138,7 @@ export default function Productos() {
                 {productos.map((producto) => (
                   <tr key={producto.id}>
                     <td>{producto.nombre}</td>
-                    <td className="num">{producto.precio.toFixed(2)}</td>
+                    <td className="num">{formatearMonto(producto.precio)}</td>
                     <td className="num">{producto.stock}</td>
                     <td>
                       <div className="acciones-form">

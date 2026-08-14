@@ -15,6 +15,16 @@ function validarDatos({ nombre, email }) {
   }
 }
 
+// Un id de ruta inválido (NaN, decimal, cero, negativo) no puede llegar a una
+// query: mysql2 lo pasaría tal cual al driver y el error crudo caería en el
+// branch genérico del errorHandler como 500. Se corta acá, antes de tocar el
+// model, para que siempre sea un 400 de dominio.
+function validarId(id) {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError(400, 'DATOS_INVALIDOS', 'El id debe ser un número entero positivo');
+  }
+}
+
 // Único traductor de "la base rechazó por email duplicado" a AppError.
 // Se usa tanto en crear() como en actualizar(): es la misma garantía real
 // (el UNIQUE de la base) reaccionando a la misma ventana de carrera en los
@@ -31,6 +41,7 @@ export async function listar(incluirInactivos = false) {
 }
 
 export async function obtener(id) {
+  validarId(id);
   const cliente = await clienteModel.buscarPorId(id);
   if (!cliente) {
     throw new AppError(404, 'CLIENTE_NO_ENCONTRADO', `No existe el cliente ${id}`);

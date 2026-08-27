@@ -126,3 +126,123 @@ por qué el mock no los detectaba, y por qué el arreglo es mover la validación
 el lock y no agregar una capa nueva. Si en la mesa preguntan por una decisión que
 tomó la IA y no la puedo explicar, ese punto no se aprueba — es la regla del §6, y
 la aplico contra mí mismo antes de que la aplique el tribunal.
+
+---
+
+# Decisiones — TP3 (Planificación y trazabilidad)
+
+## 1. Duración del sprint
+
+Elegí un sprint de **1 semana**. La cátedra entrega los TPs con cadencia corta
+(cada práctico es, en los hechos, una iteración chica de trabajo), así que un
+sprint más largo —dos o cuatro semanas, que es lo típico en la industria— no
+tendría sentido acá: para cuando terminara el sprint ya habría otro TP encima.
+Una semana es lo bastante chico para que el Sprint Goal ("dejar el CI
+funcionando end to end") sea alcanzable y medible, y lo bastante grande como
+para no convertir cada sprint en una sola tarjeta.
+
+## 2. Límite de trabajo en progreso (WIP)
+
+Lo dejé en **2**, siguiendo la regla de arranque del enunciado: cantidad de
+personas + 1. Trabajando solo, eso da 2. La "válvula" del +1 es para cuando una
+tarjeta queda esperando algo externo (un PR en revisión, una respuesta) y
+necesito poder avanzar en otra cosa sin quedar bloqueado, pero sin abrir tantos
+frentes que pierda el foco. Señal de que está mal calibrado: si nunca lo toco
+(siempre tengo 0 o 1 en progreso) está demasiado alto y no cumple ninguna
+función; si lo piso todo el tiempo sin poder avanzar en nada, está demasiado
+bajo.
+
+## 3. Diagnóstico de la historia mal escrita
+
+La historia del ejercicio (issue #14) es:
+
+> "Como desarrollador quiero crear la tabla usuarios para guardar los datos."
+
+Está mal escrita por dos motivos, no uno:
+
+- **Es una tarea técnica disfrazada de historia.** El "rol" es "desarrollador",
+  no un usuario real de la app — nadie fuera del equipo técnico "quiere" que
+  exista una tabla. Eso es exactamente el anti-patrón que describe la guía: una
+  historia solo tiene sentido si el rol es alguien que percibe el valor desde
+  afuera del código.
+- **El beneficio es circular.** "Para guardar los datos" no es un beneficio, es
+  una repetición de la capacidad ("crear la tabla" ↔ "guardar datos" son casi lo
+  mismo). Un beneficio de verdad explica *para qué* le sirve a ese rol, y acá no
+  hay ningún "para qué" adicional.
+
+**Cómo la reescribiría:** subiendo un nivel, a algo que sí sea observable por un
+usuario, y bajando "crear la tabla usuarios" a una **tarea** dentro de esa
+historia:
+
+> Historia: "Como usuario quiero iniciar sesión con mi usuario y contraseña
+> para acceder solo yo a mis datos."
+> Tarea técnica de esa historia: "Crear la tabla `usuarios` con el hash de la
+> contraseña."
+
+Así la tabla sigue existiendo como trabajo a hacer, pero colgada de una historia
+que sí es testeable (se puede loguear o no) y tiene un beneficio real (acceso
+protegido), no de una excusa técnica.
+
+## 4. Problemas encontrados y cómo los resolví
+
+- **Comandos de la guía en sintaxis bash, corriendo en `cmd.exe`.** Los
+  `gh issue create` de la guía usan comillas simples y continuación de línea con
+  `\`, que en `cmd.exe` no significan nada — el prompt quedaba colgado en `>`
+  esperando que cerrara un string que nunca se abrió. Lo resolví pasando todo a
+  una sola línea con comillas dobles, y para los issues con body largo (varias
+  líneas, checklists) usé `--body-file` apuntando a un `.txt` escrito con
+  `notepad`, en vez de pelear con el escapado en la terminal.
+- **Confundí el ID del proyecto con su número.** `gh project edit` pide el
+  `NUMBER` (un entero chico, `1`), no el node ID `PVT_...` que muestra la URL o
+  la API — probé pasarle el ID largo entre `< >` (que además `cmd.exe` interpreta
+  como redirección de archivo) y tiraba error. Se resolvió corriendo
+  `gh project list --owner "@me"` y usando la columna `NUMBER`.
+- **Le puse el label `bug` al issue equivocado.** En vez de crear un issue nuevo
+  para el bug, edité el issue #14 (el de la historia mal escrita del ejercicio)
+  y le agregué el label `bug`, dejándolo con un título que no describe ningún
+  bug real. Lo corregí sacándole el label a `#14` (`gh issue edit 14
+  --remove-label bug`) y creando el bug de verdad como issue nuevo (`#16`), con
+  el título y el cuerpo (qué pasa / qué esperaba / cómo reproducirlo)
+  correspondientes.
+- **El Pull Request no se sumó solo al Project.** El *auto-add* del Project
+  toma los issues del repo, pero no agregó automáticamente el PR que abrí para
+  la tarea de CI. Lo agregué a mano con `gh project item-add <numero_proyecto>
+  --url <url_del_pr>`.
+- **No entendía por qué el Project no vive dentro del repo.** GitHub Projects
+  (v2) es una entidad de **cuenta** (`github.com/users/<usuario>/projects/<n>`),
+  no del repositorio — un mismo Project puede agrupar issues de varios repos, o
+  un mismo repo puede tener issues repartidos en varios Projects. La conexión
+  con `ingsoft3-tp01` es por contenido (qué issues/PRs tiene agregados como
+  ítems), no por ubicación. Es la diferencia de filosofía frente a Azure Boards,
+  donde el tablero sí es parte integral del "Proyecto" de la organización.
+
+## 5. Declaración de uso de IA
+
+**Qué hice con IA.** Para este TP le pedí a Claude (Claude Code) que ejecutara
+directamente casi todos los comandos: crear los labels, la épica, la historia
+con sus criterios de aceptación, las dos tareas, el bug, vincular la jerarquía,
+crear y hacer público el Project, abrir el PR con `Closes #12`, y redactar este
+mismo apartado de `decisiones.md`. Se lo pedí explícitamente ("hacelo vos") en
+vez de tipear yo cada comando, después de haber hecho a mano los primeros pasos
+(labels, primeros issues) y de haber entendido el porqué de cada uno con la
+guía.
+
+**Qué NO hice con IA.** La configuración del Board, el campo Iteration (Sprint)
+y el límite de trabajo en progreso los hice yo a mano en la web de GitHub,
+siguiendo las instrucciones — no son automatizables por `gh`. También revisé
+antes de mergear que el PR realmente implementara la tarea que decía cerrar
+(el workflow de CI), y elegí yo los números de duración de sprint y de WIP
+limit (la IA propuso la redacción y la justificación, pero los números y el
+razonamiento los entendí y los puedo sostener en la defensa, no son una caja
+negra).
+
+**Cómo lo verifiqué.** Después de cada tanda de comandos corrí `gh issue list
+--state all` y `gh issue view <n>` para confirmar que los issues quedaron con
+el título, el label y el body correctos (así detecté el error del punto
+anterior, el label `bug` mal puesto). Confirmé el cierre automático de la tarea
+con `gh issue view 12 --json state,closed` después de mergear el PR, y la
+visibilidad pública del Project con `gh project view 1 --owner "@me" --format
+json --jq '.public'`. Puedo reproducir y explicar cada comando en la defensa:
+qué hace, por qué esa forma y no otra, y qué pasa si algo de esto falla (por
+ejemplo, qué pasaría si el PR apuntara a una rama que no es `main`, o si me
+olvidara el `--label`).

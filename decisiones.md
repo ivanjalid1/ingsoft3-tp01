@@ -437,14 +437,28 @@ motivo es un error mío. Lo dejo con SHAs y fechas para que se pueda verificar.
 
 ## 1. Qué pasó
 
-- **Hice un `git push --force` sobre `main`.** El 2026-09-02 a las 14:23:57 UTC
-  la punta pasó de `dd12e4b` a `f75a856` sin ser un avance: reescribí la
-  historia en vez de extenderla. Fue la salida rápida de un `main` local
-  divergido — el mismo error de fondo que ya está documentado en el TP1 (§2).
-- **Después recreé los tres tags sobre el commit final.** `v1.0.0`, `v2.0.0` y
-  `v3.0.0` apuntan hoy los tres a `05f8a69` (el merge del PR #27) y comparten
-  `taggerdate` al segundo (2026-09-02 13:28:46 -0300): los hice de nuevo en la
-  misma tanda, después del force-push.
+Ese día estaba reordenando el repositorio en carpetas por TP antes de entregar:
+mover `tp1/` y `tp2/app/` a carpetas dedicadas (`821ddff`, 10:51:05), sacar una
+copia desactualizada de `decisiones.md` (`d5dabd9`, 11:00:30) y sumar el
+proyecto .NET del TP2 (`f75a856`, 11:03:26). Todo eso entró por el PR #18, que
+mergeé desde la web a las 14:07:40 UTC (merge commit `dd12e4b`); más tarde el
+PR #25 (`b28ba45`) cerró la reorganización sacando el sample de la cátedra y
+promoviendo el ERP de `tp2/app/` a `tp2/`.
+
+- **Hice un `git push --force` sobre `main`.** Dieciséis minutos después de
+  haber mergeado bien el PR #18 — el 2026-09-02 a las 14:23:57 UTC — la punta
+  pasó de `dd12e4b` a `f75a856` sin ser un avance: reescribí la historia en vez
+  de extenderla. El merge lo había hecho en la web, así que mi `main` local
+  quedó divergido del remoto; en lugar de traerlo con `git pull`, forcé mi
+  versión local y me llevé puesto el merge. Es el mismo error que ya está
+  documentado en el TP1 (§2), el `main` local atrasado tras mergear en la web,
+  solo que esta vez, en vez de que el push me lo rechazara, lo forcé.
+- **Después recreé los tres tags sobre el commit final**, porque el force-push
+  dejó a los viejos apuntando a puntos de la historia nueva donde la entrega no
+  está (lo desarrollo en §3). `v1.0.0`, `v2.0.0` y `v3.0.0` apuntan hoy los tres
+  a `05f8a69` (el merge del PR #27) y comparten `taggerdate` al segundo
+  (2026-09-02 13:28:46 -0300): los hice de nuevo en la misma tanda, después del
+  force-push.
 
 ## 2. Qué se perdió y qué no
 

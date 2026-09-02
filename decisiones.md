@@ -438,9 +438,10 @@ promoviendo el ERP de `tp2/app/` a `tp2/`.
 - **Después recreé los tres tags sobre el commit final**, porque el force-push
   dejó a los viejos apuntando a puntos de la historia nueva donde la entrega no
   está (lo desarrollo en §3). `v1.0.0`, `v2.0.0` y `v3.0.0` apuntan hoy los tres
-  a `05f8a69` (el merge del PR #27) y comparten `taggerdate` al segundo
-  (2026-09-02 13:28:46 -0300): los hice de nuevo en la misma tanda, después del
-  force-push.
+  a la punta de `main` al momento de la entrega, y comparten `taggerdate` al
+  segundo porque los rehago siempre en la misma tanda. Los moví dos veces: la
+  primera enseguida del force-push, y la segunda al sumar esta misma nota,
+  porque si no la documentación de los tags quedaba fuera de los tags.
 
 ## 2. Qué se perdió y qué no
 
@@ -461,11 +462,12 @@ promoviendo el ERP de `tp2/app/` a `tp2/`.
 
 ## 3. Por qué los tres tags están en el mismo commit
 
-Porque `05f8a69` es el único punto de la historia actual que contiene la
-documentación completa de los tres TPs. Etiquetar tres commits distintos habría
-sido más prolijo, pero en la historia nueva ninguno de ellos contiene lo que su
-tag diría contener. Preferí que los tags apunten a algo verificable y explicar
-acá el porqué, antes que dejar tres etiquetas que no se sostienen.
+Porque el último commit de la entrega —la punta de `main`— es el único punto de
+la historia actual que contiene la documentación completa de los tres TPs, esta
+nota incluida. Etiquetar tres commits distintos habría sido más prolijo, pero en
+la historia nueva ninguno de ellos contiene lo que su tag diría contener.
+Preferí que los tags apunten a algo verificable y explicar acá el porqué, antes
+que dejar tres etiquetas que no se sostienen.
 
 ## 4. Dónde está la historia original
 
@@ -480,10 +482,10 @@ acá el porqué, antes que dejar tres etiquetas que no se sostienen.
 
 ## 5. Los releases: `created_at` no es la fecha de publicación
 
-Los tres releases muestran `created_at` = 2026-09-02T16:28:46Z, el mismo segundo
-para los tres, que es el `taggerdate` de los tags nuevos: el `created_at` de un
-release en GitHub refleja la fecha del objeto tag, así que moverlos reescribió
-ese campo. La fecha real de publicación quedó en `published_at`, que no se tocó:
+Los tres releases muestran el mismo `created_at` al segundo, que es el
+`taggerdate` de los tags: el `created_at` de un release en GitHub refleja la
+fecha del objeto tag, así que cada vez que moví los tags se reescribió ese
+campo. La fecha real de publicación quedó en `published_at`, que no se tocó:
 v1.0.0 el 2026-08-12T18:19:07Z, v2.0.0 el 2026-08-27T19:24:53Z y v3.0.0 el
 2026-08-27T20:00:00Z.
 

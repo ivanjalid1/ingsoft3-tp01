@@ -1,0 +1,20 @@
+# ---- Etapa 1: build (imagen con SDK) ----
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Solución multi-proyecto: se copian el .sln y cada .csproj (respetando rutas)
+# antes del restore — capa cacheable: solo se rehace si cambian los .csproj.
+COPY Backend.sln .
+COPY DemoApi/DemoApi.csproj DemoApi/
+COPY DemoApi.Tests/DemoApi.Tests.csproj DemoApi.Tests/
+RUN dotnet restore Backend.sln
+
+COPY . .
+RUN dotnet publish DemoApi/DemoApi.csproj -c Release -o /app/publish
+
+# ---- Etapa 2: runtime (imagen mínima, sin SDK) ----
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "DemoApi.dll"]

@@ -409,3 +409,259 @@ $ docker compose -f docker-compose.registry.yml down -v
  Volume tp2_db_data Removed
  Network tp2_default Removed
 ```
+
+---
+
+# Evidencias — TP3 (Planificación y trazabilidad)
+
+Las salidas de esta sección son literales: las saqué con `gh` contra el repo y el
+Project reales, y las pegué sin editar más que alinear alguna columna. El Project
+es https://github.com/users/ivanjalid1/projects/1.
+
+## 1. El Project es público y el sprint dura una semana
+
+Lo primero que hay que poder verificar desde afuera es que el tablero se ve sin
+estar logueado. El campo `public` del Project lo dice sin ambigüedad, y de paso
+quedan a la vista los 14 ítems que tiene cargados:
+
+```
+$ gh project view 1 --owner "@me" --format json --jq '{title, public, url, items: .items.totalCount}'
+{"items":14,"public":true,"title":"IngSoft3 - Mi App DevOps","url":"https://github.com/users/ivanjalid1/projects/1"}
+```
+
+La configuración del sprint vive en el campo de iteración `Sprint`, que la API de
+Projects solo expone por GraphQL:
+
+```
+$ gh api graphql -f query='
+query {
+  user(login: "ivanjalid1") {
+    projectV2(number: 1) {
+      title
+      public
+      field(name: "Sprint") {
+        ... on ProjectV2IterationField {
+          name
+          configuration {
+            duration
+            startDay
+            iterations { title startDate duration }
+          }
+        }
+      }
+    }
+  }
+}'
+{"data":{"user":{"projectV2":{"title":"IngSoft3 - Mi App DevOps","public":true,"field":{"name":"Sprint","configuration":{"duration":14,"startDay":4,"iterations":[{"title":"Sprint 1","startDate":"2026-08-27","duration":7}]}}}}}}
+```
+
+Hay que leer esa salida con cuidado porque trae **dos** `duration` y significan
+cosas distintas. El de afuera (`"duration":14`) es el valor por defecto que
+GitHub usaría para generar la *próxima* iteración; quedó en 14 porque es lo que
+trae de fábrica y nunca lo toqué. El que importa es el de adentro del array
+`iterations`: **`Sprint 1`, `startDate` `2026-08-27`, `duration` 7**. Esa es la
+iteración que existe de verdad y en la que están cargados los ítems, y son
+efectivamente 7 días — la decisión de "un sprint de 1 semana" que justifico en
+`decisiones.md` §TP3.1 (*"Elegí un sprint de 1 semana"*). Con inicio el
+2026-08-27, el sprint cierra el 2026-09-03.
+
+El release del TP3 cae dentro de esa ventana, que es lo que uno esperaría si el
+sprint es real y no una etiqueta puesta después:
+
+```
+$ gh release list
+TP3 - Planificacion y trazabilidad	Latest	v3.0.0	2026-08-27T20:00:00Z
+TP2 - App contenerizada			v2.0.0	2026-08-27T19:24:53Z
+v1.0.0					v1.0.0	2026-08-12T18:19:07Z
+```
+
+`v3.0.0` se publicó el 2026-08-27 a las 20:00 UTC: el mismo día en que arranca
+`Sprint 1`, unos minutos después de que terminara de cargar el tablero.
+
+## 2. El límite de trabajo en progreso (WIP)
+
+El límite de WIP es una configuración de la vista del board y la API de Projects
+no la expone, así que la evidencia acá es la captura del tablero:
+
+![board con el limite de WIP en la columna In Progress](img/05-tp3-board-wip.png)
+
+Lo que hay que mirar es el contador al lado del nombre de cada columna. `Todo`
+dice `3` y `Done` dice `9` — un número solo, sin límite. `In Progress`, en
+cambio, dice **`2 / 2`**: el primer número son las tarjetas que hay adentro
+(#11 y #7) y el segundo es el tope configurado. Está en 2 porque es la regla de
+arranque del enunciado que aplico en `decisiones.md` §TP3.2 — cantidad de
+personas + 1, y trabajando solo eso da 2. La columna está justo en el límite, así
+que para meter una tercera tarjeta tendría que sacar una primero: exactamente el
+efecto que el límite busca.
+
+La captura también muestra dos cosas que sirven para el resto de la sección: el
+ícono de globo al lado del título confirma que el Project es público, y la
+tarjeta de #12 en `Done` lleva colgado el chip `#15`, que es el PR que la cerró.
+
+## 3. La jerarquía épica → historia → tareas
+
+Estos son todos los issues del repo, con el label que marca de qué nivel es cada
+uno:
+
+```
+$ gh issue list --state all --json number,title,state,labels \
+    --jq '.[] | "\(.number)\t\(.state)\t[\(.labels|map(.name)|join(","))]\t\(.title)"'
+16	OPEN	[bug]	El front carga sin la lista cuando el back todavia no responde
+14	OPEN	[]	Como desarrollador quiero crear la tabla usuarios
+13	OPEN	[task]	Publicar el reporte de tests como artefacto
+12	CLOSED	[task]	Escribir el workflow de build y tests
+11	OPEN	[story]	CI: build y tests automáticos en cada PR
+7	OPEN	[epic]	EPIC: Pipeline DevOps completo para mi app
+```
+
+Los labels (`epic`, `story`, `task`, `bug`) dicen qué es cada issue, pero no
+prueban que estén *colgados* unos de otros. Eso lo prueba la relación de
+sub-issues, que es una relación real de GitHub y no una convención de nombres:
+
+```
+$ gh api graphql -f query='
+query {
+  repository(owner: "ivanjalid1", name: "ingsoft3-tp01") {
+    issue(number: 7) {
+      number title
+      subIssues(first: 10) {
+        totalCount
+        nodes { number title state
+          subIssues(first: 10) { totalCount nodes { number title state } }
+        }
+      }
+    }
+  }
+}'
+{"data":{"repository":{"issue":{"number":7,"title":"EPIC: Pipeline DevOps completo para mi app","subIssues":{"totalCount":1,"nodes":[{"number":11,"title":"CI: build y tests automáticos en cada PR","state":"OPEN","subIssues":{"totalCount":2,"nodes":[{"number":13,"title":"Publicar el reporte de tests como artefacto","state":"OPEN"},{"number":12,"title":"Escribir el workflow de build y tests","state":"CLOSED"}]}}]}}}}}
+```
+
+La consulta arranca en la épica y baja dos niveles sola, que es la forma de ver
+la cadena completa de una sola vez:
+
+- **#7** (`epic`) → *EPIC: Pipeline DevOps completo para mi app*
+  - **#11** (`story`) → *CI: build y tests automáticos en cada PR*
+    - **#12** (`task`, `CLOSED`) → *Escribir el workflow de build y tests*
+    - **#13** (`task`, `OPEN`) → *Publicar el reporte de tests como artefacto*
+
+Los dos issues que quedan afuera de esa cadena están afuera a propósito. **#16**
+es el bug (`[bug]`), que no cuelga de la historia porque no es trabajo
+planificado sino algo que apareció; va al costado, en `Todo`. Y **#14** es la
+historia mal escrita del ejercicio ("Como desarrollador quiero crear la tabla
+usuarios"), que dejé suelta justamente porque el punto del ejercicio es que *no*
+es una historia: el diagnóstico y la reescritura están en `decisiones.md` §TP3.3.
+
+Una aclaración sobre esa última fila: #14 aparece con la lista de labels
+**vacía** (`[]`). No es un error de la consulta, es que nunca le puse label. Y
+tiene sentido que no lo tenga: ponerle `story` sería afirmar que es una historia,
+que es precisamente lo que el ejercicio pide discutir.
+
+## 4. El contenido del Sprint 1
+
+Estos son los ítems que tienen la iteración `Sprint 1` asignada, con su columna
+del board:
+
+```
+$ gh project item-list 1 --owner "@me" --limit 30 --format json \
+    --jq '.items[] | select(.sprint != null) | "\(.content.type)\t#\(.content.number)\t\(.status)\t\(.sprint.title)\t\(.title)"'
+Issue		#13	Todo		Sprint 1	Publicar el reporte de tests como artefacto
+Issue		#11	In Progress	Sprint 1	CI: build y tests automáticos en cada PR
+Issue		#7	In Progress	Sprint 1	EPIC: Pipeline DevOps completo para mi app
+Issue		#12	Done		Sprint 1	Escribir el workflow de build y tests
+PullRequest	#15	Done		Sprint 1	CI: esqueleto del workflow
+Issue		#16	Todo		Sprint 1	El front carga sin la lista cuando el back todavia no responde
+Issue		#14	Todo		Sprint 1	Como desarrollador quiero crear la tabla usuarios
+```
+
+Son 7 ítems: la épica, la historia, sus dos tareas, el PR, el bug y la historia
+del ejercicio. Los estados coinciden uno a uno con los contadores de la captura
+de la sección 2 — dos `In Progress` (#11 y #7, que es el `2 / 2`), tres `Todo`
+(#13, #16 y #14, que es el `3`) y dos `Done` (#12 y #15).
+
+El Project tiene 14 ítems pero solo 7 están en el sprint. Los otros 7 son PRs
+viejos:
+
+```
+$ gh project item-list 1 --owner "@me" --limit 30 --format json \
+    --jq '.items[] | select(.sprint == null) | "\(.content.type)\t#\(.content.number)\t\(.status)\t(sin sprint)\t\(.title)"'
+PullRequest	#1	Done	(sin sprint)	Add project link to README
+PullRequest	#2	Done	(sin sprint)	Update project title in README.md
+PullRequest	#3	Done	(sin sprint)	Update project title in README.md
+PullRequest	#4	Done	(sin sprint)	Agrega entregables del TP1: .gitignore, decisiones.md y evidencias.md
+PullRequest	#5	Done	(sin sprint)	feat: app del semestre - ERP minimo con sus tres contenedores
+PullRequest	#6	Done	(sin sprint)	docs: quita el contenido de entrega y conserva la declaracion de uso de IA
+PullRequest	#17	Done	(sin sprint)	docs: decisiones del TP3
+```
+
+Los dejé sin iteración a propósito. Son los PRs del TP1 y del TP2 más el del TP3,
+todos mergeados *antes* de que `Sprint 1` existiera: meterlos adentro inflaría el
+sprint con trabajo que no se hizo en esa ventana y haría que cualquier métrica de
+la iteración mintiera. Están en el Project porque GitHub los agrega solo y son
+parte de la historia del repo, pero no son parte del sprint.
+
+## 5. Trazabilidad: tarea → PR → cierre automático
+
+La cadena que quiero poder demostrar es que una tarea del sprint se cerró sola
+cuando se mergeó el PR que la implementaba, sin que yo tocara el issue a mano.
+
+El PR #15 declara la relación en el cuerpo con la palabra clave `Closes`:
+
+```
+$ gh pr view 15 --json number,title,mergedAt,body
+{"body":"Agrega .github/workflows/ci.yml con el disparador y el checkout. Closes #12.","mergedAt":"2026-08-27T19:35:06Z","number":15,"title":"CI: esqueleto del workflow"}
+```
+
+Pero el texto del cuerpo por sí solo no prueba nada — podría estar mal escrito y
+GitHub ignorarlo. Lo que prueba que GitHub *interpretó* la palabra clave es el
+campo `closingIssuesReferences`, que es la relación ya parseada:
+
+```
+$ gh pr view 15 --json number,state,closingIssuesReferences
+{"closingIssuesReferences":[{"id":"I_kwDOT2lG1M8AAAABOi7-mw","number":12,"repository":{"id":"R_kgDOT2lG1A","name":"ingsoft3-tp01","owner":{"id":"U_kgDOCcRTnQ","login":"ivanjalid1"}},"url":"https://github.com/ivanjalid1/ingsoft3-tp01/issues/12"}],"number":15,"state":"MERGED"}
+```
+
+Del otro lado, el issue #12 quedó cerrado y —esto es lo importante— cerrado como
+**completado**, no como descartado:
+
+```
+$ gh issue view 12 --json number,title,state,stateReason,closed,closedAt
+{"closed":true,"closedAt":"2026-08-27T19:35:07Z","number":12,"state":"CLOSED","stateReason":"COMPLETED","title":"Escribir el workflow de build y tests"}
+```
+
+La distinción entre `COMPLETED` y `NOT_PLANNED` no es un detalle: un issue
+cerrado a mano y descartado también daría `state: CLOSED`, y para una métrica de
+sprint no es lo mismo una tarea terminada que una abandonada.
+
+Lo que cierra el círculo es el evento de cierre del timeline, porque nombra
+explícitamente **quién** cerró el issue:
+
+```
+$ gh api graphql -f query='
+query {
+  repository(owner: "ivanjalid1", name: "ingsoft3-tp01") {
+    issue(number: 12) {
+      timelineItems(last: 5, itemTypes: [CLOSED_EVENT, CONNECTED_EVENT, CROSS_REFERENCED_EVENT]) {
+        nodes {
+          __typename
+          ... on ClosedEvent {
+            createdAt
+            stateReason
+            closer { __typename ... on PullRequest { number title mergedAt } }
+          }
+        }
+      }
+    }
+  }
+}'
+{"data":{"repository":{"issue":{"timelineItems":{"nodes":[{"__typename":"CrossReferencedEvent"},{"__typename":"ClosedEvent","createdAt":"2026-08-27T19:35:07Z","stateReason":"COMPLETED","closer":{"__typename":"PullRequest","number":15,"title":"CI: esqueleto del workflow","mergedAt":"2026-08-27T19:35:06Z"}}]}}}}}
+```
+
+El `closer` del `ClosedEvent` es el PR #15. Y los timestamps lo confirman solos:
+el PR se mergeó a las `19:35:06Z` y el issue se cerró a las `19:35:07Z`, **un
+segundo después**. Ese segundo es GitHub procesando el merge; ninguna persona
+cierra un issue un segundo después de apretar *Merge*.
+
+La cadena completa queda entonces así, y cada eslabón tiene su comando arriba:
+
+**épica #7** → **historia #11** → **tarea #12** → **PR #15** (`Closes #12`) →
+merge → **#12 cerrado como `COMPLETED`** → la tarjeta pasa a `Done` en el board.

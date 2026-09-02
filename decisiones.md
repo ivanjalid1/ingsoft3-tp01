@@ -215,8 +215,15 @@ con los problemas reales documentados en los propios mensajes:
   `start_period: 60s` porque el primer arranque también corre `init.sql`,
   `retries: 12`) y se le agregó `restart: unless-stopped` a `db`, que era el
   único de los tres servicios sin esa política pese a ser el que los otros
-  dos dependen. En la corrida real documentada, la base tardó ~36s en dar
-  `healthy` y el backend arrancó recién después, sin reintentos.
+  dos dependen. En la corrida real documentada, la base tardó ~26s en dar
+  `healthy` y el backend arrancó recién después, sin reintentos. (Este
+  documento decía antes "~36s". Era una estimación al ojo y el número se
+  corrigió contra la medición real — igual que con el tamaño de la imagen del
+  frontend más abajo, no se borró el error sino que se deja declarada la
+  corrección. El dato sale de los timestamps de `evidencias.md` §TP2.5: `db`
+  arrancó a las 16:06:44.98, dio `ready for connections` a las 16:07:08.99 y
+  el backend recién a las 16:07:11.42. Como todos los tiempos de estos
+  documentos, es lo que tardó en mi máquina, no una constante.)
 
 - **Un test de entorno daba falso positivo por el `.env` local**
   (`298db4c test: independiza env.test del .env local...`): `env.test.js`

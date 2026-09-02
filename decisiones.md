@@ -83,16 +83,27 @@ Cumple los criterios de la guía:
   era desproporcionado para lo que aporta acá — con la salvedad real de que
   nginx baja de privilegios sus *workers*, mientras que antes del fix del
   backend el proceso de Node corría como root de punta a punta.
-- **Imagen publicada en un registry**: **no hay evidencia** de que las
-  imágenes de este ERP se hayan publicado en ningún registry (ni
-  `ghcr.io` ni Docker Hub). No existe un `docker-compose.registry.yml` para
-  `tp2/app/` (a diferencia del sample .NET, que sí tiene uno apuntando a
-  `ghcr.io/ivanjalid1/mi-backend`/`mi-frontend`), y el único workflow de CI
-  del repo (`.github/workflows/ci.yml`) solo hace `actions/checkout@v4`, sin
-  steps de build ni de `docker push`. **Pendiente**: si la entrega de TP2
-  pide una imagen publicada, hay que decidir si se publica este ERP a un
-  registry y con qué tag/arquitectura — hoy no hay nada que verificar porque
-  no se publicó nada.
+- **Imagen publicada en un registry**: publicadas en `ghcr.io`, mismo
+  procedimiento que el sample .NET (§3.7 de la guía): `docker build` de cada
+  Dockerfile, `docker tag` a `ghcr.io/ivanjalid1/erp-backend:v0.1.0` y
+  `ghcr.io/ivanjalid1/erp-frontend:v0.1.0`, login con
+  `gh auth token | docker login ghcr.io -u ivanjalid1 --password-stdin`,
+  `docker push` de las dos, y visibilidad cambiada a **pública** a mano desde
+  *Package settings* en GitHub (el endpoint de la API para cambiar
+  visibilidad no está disponible con el token de `gh auth token`, hay que
+  hacerlo desde la web — igual que documenta la guía). Verificado bajando sin
+  sesión (`docker logout` + `docker pull` de cero: éxito).
+  `tp2/app/docker-compose.registry.yml` es la variante que consume esas
+  imágenes (`image:` en vez de `build:`) — probada de punta a punta:
+  `docker compose down --rmi local` + `docker rmi` de los dos nombres +
+  `docker builder prune -af` para vaciar los tres lugares donde Docker
+  esconde capas, y recién ahí `docker compose -f docker-compose.registry.yml
+  up -d` bajó las imágenes de `ghcr.io` (no construyó nada local): `db`
+  healthy, backend escuchando, frontend respondiendo `200` en
+  `localhost:8080`.
+  **Pendiente de verificar**: arquitectura de la imagen (no se usó
+  `docker buildx`/`--platform`, se construyó local sin más — mismo caso que
+  el sample .NET).
 
 ### Problemas encontrados y cómo se resolvieron
 
@@ -154,9 +165,10 @@ con los problemas reales documentados en los propios mensajes:
   mano en el compose (no "secretos inyectados del entorno"), y documentó la
   decisión de dejar el frontend corriendo como root.
 
-No hay evidencia de problemas de compatibilidad de arquitectura de imagen
-(no se publicó a ningún registry, ver arriba) ni de fallas de build sin
-resolver — los `.dockerignore` de `backend/` y `frontend/` ya excluyen
+No hubo problemas al publicar en `ghcr.io` ni al probar `docker-compose.registry.yml`
+(ver la sección de arriba) — el único punto abierto ahí es la arquitectura de la
+imagen, no confirmada por no usar `buildx`. Tampoco hay evidencia de fallas de
+build sin resolver — los `.dockerignore` de `backend/` y `frontend/` ya excluyen
 `node_modules`, `.env`, `.git`, `coverage` (y `dist` en el frontend), así que
 no hay evidencia tampoco de que artefactos de build o secretos se hayan
 colado en el contexto de build por error.

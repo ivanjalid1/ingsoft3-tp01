@@ -1,8 +1,82 @@
-# Decisiones
+# Decisiones — TP1
 
-## TP2 — Contenedores
+## 1. Por qué Git no pudo resolver el conflicto solo
 
-### App elegida y justificación
+Las ramas `feature/titulo-a` y `feature/titulo-b` salieron las dos del mismo commit de `main` y
+modificaron **la misma línea** del `README.md` (el título). Cuando mergeé A, `main` avanzó; al
+intentar mergear B, Git comparó las dos puntas contra el ancestro común y encontró dos cambios
+distintos sobre la misma línea.
+
+Git fusiona solo cuando los cambios tocan partes distintas del archivo. Acá no hay forma de saber
+cuál versión es "la correcta": es una decisión de **contenido**, no técnica. Por eso Git no elige
+y me delega la decisión marcando el archivo con `<<<<<<<`, `=======` y `>>>>>>>`.
+
+**Qué habría tenido que pasar para que no apareciera:** que las ramas no tocaran la misma línea, o
+que B se hubiera actualizado con `main` (`git pull`/merge de `main`) **antes** de que A entrara —
+es decir, integrar seguido y con ramas cortas. El conflicto es la consecuencia de trabajar en
+paralelo sobre lo mismo; lo evitable no es el conflicto, es que sea grande.
+
+## 2. Problemas que encontré y cómo los solucioné
+
+- **El primer intento de push directo falló por el motivo equivocado.** Copié la línea de la guía
+  con el comentario incluido (`git push          # ← esto TIENE que fallar`) y, como estoy en
+  Windows con `cmd`, el `#` no se interpreta como comentario: Git lo tomó como refspecs y devolvió
+  `src refspec ← does not match any`. Eso **no** era la protección de rama. Lo corregí ejecutando
+  solo `git push`, y ahí sí apareció el rechazo real (`GH006: Protected branch update failed`), que
+  es la captura que quedó como evidencia.
+
+- **Deshacer el commit de prueba.** El commit `test: intento de push directo` quedó en mi `main`
+  local y no servía para nada. Lo saqué con `git reset --hard HEAD~1`.
+
+- **El merge de GitHub no aparecía en mi máquina.** Después de mergear el PR #1 desde la web, mi
+  `main` local seguía sin el cambio: `git switch main` me avisó *"Your branch is behind
+  'origin/main' by 1 commit"*. El merge ocurre en el remoto, no en mi clon. Se arregla con
+  `git pull`.
+
+- **Ojo al crear la rama B.** Si la rama B nace de la A no hay conflicto. Tuve que asegurarme de
+  partir de `main` para que las dos ramas fueran hermanas y el conflicto se produjera.
+
+- **Resolver el conflicto en la web.** El botón de resolver queda deshabilitado hasta borrar
+  **todos** los marcadores. Dejé el archivo como si el conflicto nunca hubiera existido y recién
+  ahí pude confirmar.
+
+- **Commiteé la entrega en `main` local y me la volví a chocar.** Agregué el `.gitignore` y estos
+  dos archivos parado en `main`, y al hacer `git pull` (mi `main` local y `origin/main` habían
+  divergido: yo tenía mi commit, el remoto tenía el merge del PR #3) Git me pidió resolver un
+  conflicto en el `README.md`. Además, aunque lo resolviera, ese commit **no lo podía pushear**:
+  `main` está protegida. Lo solucioné moviendo el trabajo a una rama y haciendo que entre por PR,
+  que es como tenía que haber empezado:
+
+  ```bash
+  git merge --abort
+  git branch feature/entrega-tp01 <mi-commit>   # el trabajo se va a una rama
+  git reset --hard origin/main                  # main local vuelve a ser igual al remoto
+  git switch feature/entrega-tp01
+  git rebase origin/main                        # mis cambios, arriba de la punta de main
+  ```
+
+  La lección concreta: la protección de `main` no solo bloquea el push, **empuja a trabajar en
+  ramas**. Cuando me la saltée por costumbre, el problema apareció igual, solo que más tarde.
+
+## 3. Declaración de uso de IA
+
+Usé Claude (Claude Code) para **redactar estos dos archivos** (`decisiones.md` y `evidencias.md`) a
+partir de mis capturas y del historial del repositorio, y para revisar la redacción de la
+explicación del conflicto.
+
+**Qué NO hice con IA:** la configuración del repositorio, las protecciones de rama, los Pull
+Requests, la resolución del conflicto y el tag/release los hice yo a mano siguiendo la guía.
+
+**Cómo lo verifiqué:** contrasté lo que dice cada archivo contra lo que realmente pasó —
+las capturas, `git log --oneline --graph --all`, el listado de PRs del repositorio y la
+configuración de protección de `main` (`required_approving_review_count: 0`,
+`enforce_admins: true`). Todo lo que está escrito acá lo puedo mostrar y explicar en la defensa.
+
+---
+
+# Decisiones — TP2 (App del semestre / ERP contenerizado)
+
+## App elegida y justificación
 
 La app containerizada es el **ERP mínimo** de `tp2/app/`: clientes, productos y
 ventas. Backend **Node.js 20 + Express**, con SQL a mano vía `mysql2` (sin ORM)
@@ -40,7 +114,7 @@ Cumple los criterios de la guía:
   encima). Ambos números están documentados en el README y fueron corregidos
   una vez contra la medición real (ver "Problemas encontrados").
 
-### Decisiones de contenerización
+## Decisiones de contenerización
 
 - **Imágenes base**:
   - Backend — **una sola etapa**, `node:20-alpine`: no hay paso de build/
@@ -105,7 +179,7 @@ Cumple los criterios de la guía:
   `docker buildx`/`--platform`, se construyó local sin más — mismo caso que
   el sample .NET).
 
-### Problemas encontrados y cómo se resolvieron
+## Problemas encontrados y cómo se resolvieron
 
 A diferencia del sample .NET, el ERP tiene historial de commits incrementales
 con los problemas reales documentados en los propios mensajes:
@@ -173,7 +247,173 @@ build sin resolver — los `.dockerignore` de `backend/` y `frontend/` ya excluy
 no hay evidencia tampoco de que artefactos de build o secretos se hayan
 colado en el contexto de build por error.
 
-### Declaración de uso de IA
+## Declaración de uso de IA (§6 del reglamento)
 
-[COMPLETAR: describir qué partes fueron asistidas por IA y cómo se
-verificaron]
+**Qué hice con IA.** El diseño, el plan de implementación y el código de esta app
+se hicieron con Claude (Claude Code), en un flujo de **subagent-driven
+development**: por cada una de las 12 tareas del plan hubo un agente implementador
+que escribía el código y los tests, y un agente revisor independiente — sin
+memoria de lo que había pensado el implementador — que auditaba el resultado
+contra el spec y la calidad del código antes de darla por cerrada.
+
+**Qué encontraron las revisiones.** No fue trámite: encontraron y corrigieron
+defectos reales, entre ellos dos bugs de concurrencia que un test que mockea
+`models/` no puede detectar porque no ejercita SQL real:
+
+- En la creación de venta, un `producto_id` repetido en la misma venta evadía la
+  validación de stock y terminaba commiteando stock negativo.
+- En la anulación, el chequeo de "¿ya está anulada?" corría fuera del lock de la
+  transacción, y dos anulaciones simultáneas de la misma venta podían reponer el
+  stock dos veces.
+
+Los dos se corrigieron moviendo la validación **adentro** del `FOR UPDATE` que ya
+protegía la operación relacionada — no fueron features nuevas, fue la misma regla
+("lo que se valida se valida bajo el lock") aplicada donde todavía faltaba.
+
+**Qué NO hice con IA.** La elección del dominio, el recorte de alcance, la
+decisión final sobre cada hallazgo de revisión (qué se corrige y qué se difiere),
+la ejecución y lectura de la verificación end-to-end, y la validación de que cada
+afirmación de este repositorio es cierta.
+
+**Cómo lo verifiqué.** No acepté el resultado de la IA por reporte, lo comprobé
+contra la ejecución:
+
+- Los 71 tests corren y pasan: `npm test` en `backend/` y en `frontend/` (el
+  detalle de cuáles exige el TP5 está en la tabla de `README.md`).
+- Los tres contenedores levantan con `docker compose up -d --build` y la app
+  responde en `http://localhost:8080`.
+- La verificación final fue una corrida end-to-end real contra los tres
+  contenedores ya construidos, no contra los mocks de la suite: login, alta de
+  producto, venta con descuento de stock (20→18), anulación con reposición de
+  stock (18→20), y una segunda anulación de la misma venta devolviendo
+  `409 VENTA_YA_ANULADA` con el body visible.
+- El hash bcrypt del admin sembrado en `init.sql` se generó y se verificó a mano
+  con `bcryptjs.compareSync`.
+
+**Defendible.** Puedo explicar cada decisión de diseño e implementación de esta
+app, documentadas en `docs/superpowers/specs/2026-08-13-erp-minimo-design.md`,
+incluidos los dos bugs de concurrencia que encontró el revisor: por qué existían,
+por qué el mock no los detectaba, y por qué el arreglo es mover la validación bajo
+el lock y no agregar una capa nueva. Si en la mesa preguntan por una decisión que
+tomó la IA y no la puedo explicar, ese punto no se aprueba — es la regla del §6, y
+la aplico contra mí mismo antes de que la aplique el tribunal.
+
+---
+
+# Decisiones — TP3 (Planificación y trazabilidad)
+
+## 1. Duración del sprint
+
+Elegí un sprint de **1 semana**. La cátedra entrega los TPs con cadencia corta
+(cada práctico es, en los hechos, una iteración chica de trabajo), así que un
+sprint más largo —dos o cuatro semanas, que es lo típico en la industria— no
+tendría sentido acá: para cuando terminara el sprint ya habría otro TP encima.
+Una semana es lo bastante chico para que el Sprint Goal ("dejar el CI
+funcionando end to end") sea alcanzable y medible, y lo bastante grande como
+para no convertir cada sprint en una sola tarjeta.
+
+## 2. Límite de trabajo en progreso (WIP)
+
+Lo dejé en **2**, siguiendo la regla de arranque del enunciado: cantidad de
+personas + 1. Trabajando solo, eso da 2. La "válvula" del +1 es para cuando una
+tarjeta queda esperando algo externo (un PR en revisión, una respuesta) y
+necesito poder avanzar en otra cosa sin quedar bloqueado, pero sin abrir tantos
+frentes que pierda el foco. Señal de que está mal calibrado: si nunca lo toco
+(siempre tengo 0 o 1 en progreso) está demasiado alto y no cumple ninguna
+función; si lo piso todo el tiempo sin poder avanzar en nada, está demasiado
+bajo.
+
+## 3. Diagnóstico de la historia mal escrita
+
+La historia del ejercicio (issue #14) es:
+
+> "Como desarrollador quiero crear la tabla usuarios para guardar los datos."
+
+Está mal escrita por dos motivos, no uno:
+
+- **Es una tarea técnica disfrazada de historia.** El "rol" es "desarrollador",
+  no un usuario real de la app — nadie fuera del equipo técnico "quiere" que
+  exista una tabla. Eso es exactamente el anti-patrón que describe la guía: una
+  historia solo tiene sentido si el rol es alguien que percibe el valor desde
+  afuera del código.
+- **El beneficio es circular.** "Para guardar los datos" no es un beneficio, es
+  una repetición de la capacidad ("crear la tabla" ↔ "guardar datos" son casi lo
+  mismo). Un beneficio de verdad explica *para qué* le sirve a ese rol, y acá no
+  hay ningún "para qué" adicional.
+
+**Cómo la reescribiría:** subiendo un nivel, a algo que sí sea observable por un
+usuario, y bajando "crear la tabla usuarios" a una **tarea** dentro de esa
+historia:
+
+> Historia: "Como usuario quiero iniciar sesión con mi usuario y contraseña
+> para acceder solo yo a mis datos."
+> Tarea técnica de esa historia: "Crear la tabla `usuarios` con el hash de la
+> contraseña."
+
+Así la tabla sigue existiendo como trabajo a hacer, pero colgada de una historia
+que sí es testeable (se puede loguear o no) y tiene un beneficio real (acceso
+protegido), no de una excusa técnica.
+
+## 4. Problemas encontrados y cómo los resolví
+
+- **Comandos de la guía en sintaxis bash, corriendo en `cmd.exe`.** Los
+  `gh issue create` de la guía usan comillas simples y continuación de línea con
+  `\`, que en `cmd.exe` no significan nada — el prompt quedaba colgado en `>`
+  esperando que cerrara un string que nunca se abrió. Lo resolví pasando todo a
+  una sola línea con comillas dobles, y para los issues con body largo (varias
+  líneas, checklists) usé `--body-file` apuntando a un `.txt` escrito con
+  `notepad`, en vez de pelear con el escapado en la terminal.
+- **Confundí el ID del proyecto con su número.** `gh project edit` pide el
+  `NUMBER` (un entero chico, `1`), no el node ID `PVT_...` que muestra la URL o
+  la API — probé pasarle el ID largo entre `< >` (que además `cmd.exe` interpreta
+  como redirección de archivo) y tiraba error. Se resolvió corriendo
+  `gh project list --owner "@me"` y usando la columna `NUMBER`.
+- **Le puse el label `bug` al issue equivocado.** En vez de crear un issue nuevo
+  para el bug, edité el issue #14 (el de la historia mal escrita del ejercicio)
+  y le agregué el label `bug`, dejándolo con un título que no describe ningún
+  bug real. Lo corregí sacándole el label a `#14` (`gh issue edit 14
+  --remove-label bug`) y creando el bug de verdad como issue nuevo (`#16`), con
+  el título y el cuerpo (qué pasa / qué esperaba / cómo reproducirlo)
+  correspondientes.
+- **El Pull Request no se sumó solo al Project.** El *auto-add* del Project
+  toma los issues del repo, pero no agregó automáticamente el PR que abrí para
+  la tarea de CI. Lo agregué a mano con `gh project item-add <numero_proyecto>
+  --url <url_del_pr>`.
+- **No entendía por qué el Project no vive dentro del repo.** GitHub Projects
+  (v2) es una entidad de **cuenta** (`github.com/users/<usuario>/projects/<n>`),
+  no del repositorio — un mismo Project puede agrupar issues de varios repos, o
+  un mismo repo puede tener issues repartidos en varios Projects. La conexión
+  con `ingsoft3-tp01` es por contenido (qué issues/PRs tiene agregados como
+  ítems), no por ubicación. Es la diferencia de filosofía frente a Azure Boards,
+  donde el tablero sí es parte integral del "Proyecto" de la organización.
+
+## 5. Declaración de uso de IA
+
+**Qué hice con IA.** Para este TP le pedí a Claude (Claude Code) que ejecutara
+directamente casi todos los comandos: crear los labels, la épica, la historia
+con sus criterios de aceptación, las dos tareas, el bug, vincular la jerarquía,
+crear y hacer público el Project, abrir el PR con `Closes #12`, y redactar este
+mismo apartado de `decisiones.md`. Se lo pedí explícitamente ("hacelo vos") en
+vez de tipear yo cada comando, después de haber hecho a mano los primeros pasos
+(labels, primeros issues) y de haber entendido el porqué de cada uno con la
+guía.
+
+**Qué NO hice con IA.** La configuración del Board, el campo Iteration (Sprint)
+y el límite de trabajo en progreso los hice yo a mano en la web de GitHub,
+siguiendo las instrucciones — no son automatizables por `gh`. También revisé
+antes de mergear que el PR realmente implementara la tarea que decía cerrar
+(el workflow de CI), y elegí yo los números de duración de sprint y de WIP
+limit (la IA propuso la redacción y la justificación, pero los números y el
+razonamiento los entendí y los puedo sostener en la defensa, no son una caja
+negra).
+
+**Cómo lo verifiqué.** Después de cada tanda de comandos corrí `gh issue list
+--state all` y `gh issue view <n>` para confirmar que los issues quedaron con
+el título, el label y el body correctos (así detecté el error del punto
+anterior, el label `bug` mal puesto). Confirmé el cierre automático de la tarea
+con `gh issue view 12 --json state,closed` después de mergear el PR, y la
+visibilidad pública del Project con `gh project view 1 --owner "@me" --format
+json --jq '.public'`. Puedo reproducir y explicar cada comando en la defensa:
+qué hace, por qué esa forma y no otra, y qué pasa si algo de esto falla (por
+ejemplo, qué pasaría si el PR apuntara a una rama que no es `main`, o si me
+olvidara el `--label`).

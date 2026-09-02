@@ -1,13 +1,16 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
   server: {
-    // En dev, las llamadas a /api se proxean al backend local (dotnet run → :8080).
-    // En producción (contenedor) el mismo rol lo cumple el proxy_pass de nginx.
+    // En desarrollo, el dev server hace de proxy: /api/productos sale del
+    // navegador al puerto 5173 y Vite lo reenvía al backend en el 3000.
+    // Es lo mismo que hace nginx en producción, así que el código del
+    // frontend no cambia entre dev y prod.
     proxy: {
-      '/api': 'http://localhost:8080',
-    },
+      '/api': { target: 'http://localhost:3000', changeOrigin: true }
+    }
   },
-})
+  test: { environment: 'jsdom', globals: true, setupFiles: './tests/setup.js' }
+});

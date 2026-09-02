@@ -1,94 +1,58 @@
-import { useEffect, useState } from 'react'
-import { ordenarTareas, validarTitulo } from './lib/tareas.js'
+import { Routes, Route, Navigate } from 'react-router-dom';
+import RutaProtegida from './components/RutaProtegida.jsx';
+import Nav from './components/Nav.jsx';
+import Login from './pages/Login.jsx';
+import Productos from './pages/Productos.jsx';
+import Clientes from './pages/Clientes.jsx';
+import NuevaVenta from './pages/NuevaVenta.jsx';
+import Ventas from './pages/Ventas.jsx';
 
-// Misma URL en dev y en contenedor: en dev la proxea Vite (vite.config.js),
-// en el contenedor la proxea nginx (nginx.conf). El browser siempre ve same-origin.
-const API = '/api/tareas'
-
-export default function App() {
-  const [tareas, setTareas] = useState([])
-  const [titulo, setTitulo] = useState('')
-  const [error, setError] = useState(null)
-  const [cargando, setCargando] = useState(true)
-
-  async function cargarTareas() {
-    try {
-      const res = await fetch(API)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      setTareas(await res.json())
-      setError(null)
-    } catch (e) {
-      setError(`No se pudo conectar con la API (${e.message}). ¿Está levantado el backend?`)
-    } finally {
-      setCargando(false)
-    }
-  }
-
-  useEffect(() => {
-    cargarTareas()
-  }, [])
-
-  async function agregarTarea(e) {
-    e.preventDefault()
-    const validacion = validarTitulo(titulo)
-    if (!validacion.valido) {
-      setError(validacion.error)
-      return
-    }
-    const res = await fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titulo: validacion.titulo }),
-    })
-    if (res.ok) {
-      setTitulo('')
-      setError(null)
-      await cargarTareas()
-    } else {
-      const cuerpo = await res.json().catch(() => null)
-      setError(cuerpo?.error ?? `La API rechazó la tarea (HTTP ${res.status}).`)
-    }
-  }
-
-  async function borrarTarea(id) {
-    const res = await fetch(`${API}/${id}`, { method: 'DELETE' })
-    if (res.ok) await cargarTareas()
-  }
-
+// El shell visual (sidebar de 216px + topbar con breadcrumb + área de
+// contenido) vive acá porque es la única pieza que todas las pantallas
+// protegidas comparten. Es puro marcado: no toca RutaProtegida, no toca el
+// token, no decide si se puede entrar o no — de eso se sigue encargando
+// RutaProtegida exactamente igual que antes. /login queda afuera a propósito
+// (pantalla centrada, sin sidebar).
+function Shell({ titulo, children }) {
   return (
-    <main className="app">
-      <h1>Tareas</h1>
-      <p className="subtitulo">
-        Sample de la cátedra — Ingeniería del Software 3 · UCC
-      </p>
+    <div className="app-shell">
+      <Nav />
+      <div className="app-shell__contenido">
+        <header className="topbar">
+          <span className="topbar__breadcrumb">
+            ERP mínimo <strong>{titulo}</strong>
+          </span>
+        </header>
+        <main className="contenedor">{children}</main>
+      </div>
+    </div>
+  );
+}
 
-      <form onSubmit={agregarTarea} className="alta">
-        <input
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          placeholder="Nueva tarea…"
-          aria-label="Título de la nueva tarea"
-        />
-        <button type="submit">Agregar</button>
-      </form>
-
-      {error && <p className="error" role="alert">{error}</p>}
-
-      {cargando ? (
-        <p>Cargando…</p>
-      ) : (
-        <ul className="lista">
-          {ordenarTareas(tareas).map((t) => (
-            <li key={t.id}>
-              <span>{t.titulo}</span>
-              <button onClick={() => borrarTarea(t.id)} aria-label={`Borrar ${t.titulo}`}>
-                ✕
-              </button>
-            </li>
-          ))}
-          {tareas.length === 0 && <li className="vacia">Sin tareas todavía.</li>}
-        </ul>
-      )}
-    </main>
-  )
+// Este componente NO trae el Router adentro: lo pone main.jsx (BrowserRouter)
+// y los tests (MemoryRouter). Así se puede testear una ruta concreta sin
+// tocar la URL del navegador.
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/productos"
+        element={<RutaProtegida><Shell titulo="Productos"><Productos /></Shell></RutaProtegida>}
+      />
+      <Route
+        path="/clientes"
+        element={<RutaProtegida><Shell titulo="Clientes"><Clientes /></Shell></RutaProtegida>}
+      />
+      <Route
+        path="/ventas/nueva"
+        element={<RutaProtegida><Shell titulo="Nueva venta"><NuevaVenta /></Shell></RutaProtegida>}
+      />
+      <Route
+        path="/ventas"
+        element={<RutaProtegida><Shell titulo="Ventas"><Ventas /></Shell></RutaProtegida>}
+      />
+      <Route path="*" element={<Navigate to="/productos" replace />} />
+    </Routes>
+  );
 }

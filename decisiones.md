@@ -78,23 +78,25 @@ configuración de protección de `main` (`required_approving_review_count: 0`,
 
 ## App elegida y justificación
 
-La app containerizada es el **ERP mínimo** de `tp2/app/`: clientes, productos y
+La app containerizada es el **ERP mínimo** de `tp2/`: clientes, productos y
 ventas. Backend **Node.js 20 + Express**, con SQL a mano vía `mysql2` (sin ORM)
 y `bcryptjs` para el hashing de contraseñas; frontend **React 18 + Vite**,
 servido por nginx; base de datos **MySQL 8** (InnoDB, utf8mb4). Es la app del
 semestre — se usa de punta a punta desde TP2 hasta TP9, no un sample de
 práctica.
 
-> Nota: el repo también tiene un proyecto **.NET 8 + React** en
-> `tp2/backend`/`tp2/frontend`. Ese es el sample de práctica de la cátedra
-> (así lo dice su propio `tp2/README.md`) y queda en el repo tal cual, sin
-> tocar — esta sección describe únicamente el ERP de `tp2/app/`.
+> Nota: el repo tenía además el sample de práctica de la cátedra (**.NET 8 +
+> React + PostgreSQL**) conviviendo en `tp2/`. Lo eliminé para que `tp2/`
+> contenga únicamente la app del semestre. Las imágenes
+> `ghcr.io/ivanjalid1/mi-backend` y `ghcr.io/ivanjalid1/mi-frontend` que siguen
+> publicadas en el registry son de ese ejercicio de práctica; las de la entrega
+> son `erp-backend` y `erp-frontend`.
 
 Cumple los criterios de la guía:
 
 - **Buildea y corre local**: `docker compose up -d --build` levanta los tres
   contenedores y la app responde en `http://localhost:8080` (documentado en
-  `tp2/app/README.md`, con usuario semilla `admin@erp.local` /
+  `tp2/README.md`, con usuario semilla `admin@erp.local` /
   `Admin123!`). También corre sin Docker, contra un MySQL local en
   `localhost:3306`.
 - **Tiene tests**: **71 casos en total** — 56 en backend (`vitest` +
@@ -167,7 +169,7 @@ Cumple los criterios de la guía:
   visibilidad no está disponible con el token de `gh auth token`, hay que
   hacerlo desde la web — igual que documenta la guía). Verificado bajando sin
   sesión (`docker logout` + `docker pull` de cero: éxito).
-  `tp2/app/docker-compose.registry.yml` es la variante que consume esas
+  `tp2/docker-compose.registry.yml` es la variante que consume esas
   imágenes (`image:` en vez de `build:`) — probada de punta a punta:
   `docker compose down --rmi local` + `docker rmi` de los dos nombres +
   `docker builder prune -af` para vaciar los tres lugares donde Docker

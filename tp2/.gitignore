@@ -1,16 +1,18 @@
-# .NET
+# dependencias y artefactos de build
+node_modules/
 bin/
 obj/
-TestResults/
-
-# Node
-node_modules/
 dist/
+build/
+coverage/
+*.log
 
-# Secretos locales
+# secretos: NUNCA se versionan
 .env
+*.local
 
-# SO / IDE
+# basura del sistema operativo y del editor
 .DS_Store
-.vs/
+Thumbs.db
+.vscode/
 .idea/

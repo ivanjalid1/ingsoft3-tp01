@@ -1,4 +1,6 @@
-**/bin/
-**/obj/
-**/TestResults/
-.git/
+node_modules
+npm-debug.log
+tests
+.env
+.git
+coverage

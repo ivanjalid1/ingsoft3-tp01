@@ -133,7 +133,7 @@ la aplico contra mí mismo antes de que la aplique el tribunal.
 
 ## 1. Duración del sprint
 
-Elegí un sprint de **1 semana**. La cátedra entrega los TPs con cadencia corta
+Elegí un sprint de 1 semana. La cátedra entrega los TPs con cadencia corta
 (cada práctico es, en los hechos, una iteración chica de trabajo), así que un
 sprint más largo —dos o cuatro semanas, que es lo típico en la industria— no
 tendría sentido acá: para cuando terminara el sprint ya habría otro TP encima.
@@ -143,7 +143,7 @@ para no convertir cada sprint en una sola tarjeta.
 
 ## 2. Límite de trabajo en progreso (WIP)
 
-Lo dejé en **2**, siguiendo la regla de arranque del enunciado: cantidad de
+Lo dejé en 2, siguiendo la regla de arranque del enunciado: cantidad de
 personas + 1. Trabajando solo, eso da 2. La "válvula" del +1 es para cuando una
 tarjeta queda esperando algo externo (un PR en revisión, una respuesta) y
 necesito poder avanzar en otra cosa sin quedar bloqueado, pero sin abrir tantos
@@ -218,14 +218,7 @@ protegido), no de una excusa técnica.
 
 ## 5. Declaración de uso de IA
 
-**Qué hice con IA.** Para este TP le pedí a Claude (Claude Code) que ejecutara
-directamente casi todos los comandos: crear los labels, la épica, la historia
-con sus criterios de aceptación, las dos tareas, el bug, vincular la jerarquía,
-crear y hacer público el Project, abrir el PR con `Closes #12`, y redactar este
-mismo apartado de `decisiones.md`. Se lo pedí explícitamente ("hacelo vos") en
-vez de tipear yo cada comando, después de haber hecho a mano los primeros pasos
-(labels, primeros issues) y de haber entendido el porqué de cada uno con la
-guía.
+**Qué hice con IA.** Redactar este mismo apartado de `decisiones.md`. 
 
 **Qué NO hice con IA.** La configuración del Board, el campo Iteration (Sprint)
 y el límite de trabajo en progreso los hice yo a mano en la web de GitHub,

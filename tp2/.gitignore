@@ -1,0 +1,16 @@
+# .NET
+bin/
+obj/
+TestResults/
+
+# Node
+node_modules/
+dist/
+
+# Secretos locales
+.env
+
+# SO / IDE
+.DS_Store
+.vs/
+.idea/

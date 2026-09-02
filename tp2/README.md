@@ -206,3 +206,4 @@ defensa, enunciando en cada una la relación que tiene que probar (que el stock
 baja exactamente en la cantidad vendida, que la anulación lo devuelve a su valor
 previo) en vez de un valor fijo, porque cada persona que lo repita va a hacerlo
 con sus propios datos.
+

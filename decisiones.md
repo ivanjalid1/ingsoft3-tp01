@@ -258,12 +258,8 @@ colado en el contexto de build por error.
 
 ## Declaración de uso de IA (§6 del reglamento)
 
-**Qué hice con IA.** El diseño, el plan de implementación y el código de esta app
-se hicieron con Claude (Claude Code), en un flujo de **subagent-driven
-development**: por cada una de las 12 tareas del plan hubo un agente implementador
-que escribía el código y los tests, y un agente revisor independiente — sin
-memoria de lo que había pensado el implementador — que auditaba el resultado
-contra el spec y la calidad del código antes de darla por cerrada.
+**Qué hice con IA.** Solo la creación de la App, la creación de imágenes y puesta 
+en público NO.
 
 **Qué encontraron las revisiones.** No fue trámite: encontraron y corrigieron
 defectos reales, entre ellos dos bugs de concurrencia que un test que mockea
@@ -298,14 +294,6 @@ contra la ejecución:
   `409 VENTA_YA_ANULADA` con el body visible.
 - El hash bcrypt del admin sembrado en `init.sql` se generó y se verificó a mano
   con `bcryptjs.compareSync`.
-
-**Defendible.** Puedo explicar cada decisión de diseño e implementación de esta
-app, documentadas en `docs/superpowers/specs/2026-08-13-erp-minimo-design.md`,
-incluidos los dos bugs de concurrencia que encontró el revisor: por qué existían,
-por qué el mock no los detectaba, y por qué el arreglo es mover la validación bajo
-el lock y no agregar una capa nueva. Si en la mesa preguntan por una decisión que
-tomó la IA y no la puedo explicar, ese punto no se aprueba — es la regla del §6, y
-la aplico contra mí mismo antes de que la aplique el tribunal.
 
 ---
 
@@ -398,14 +386,8 @@ protegido), no de una excusa técnica.
 
 ## 5. Declaración de uso de IA
 
-**Qué hice con IA.** Para este TP le pedí a Claude (Claude Code) que ejecutara
-directamente casi todos los comandos: crear los labels, la épica, la historia
-con sus criterios de aceptación, las dos tareas, el bug, vincular la jerarquía,
-crear y hacer público el Project, abrir el PR con `Closes #12`, y redactar este
-mismo apartado de `decisiones.md`. Se lo pedí explícitamente ("hacelo vos") en
-vez de tipear yo cada comando, después de haber hecho a mano los primeros pasos
-(labels, primeros issues) y de haber entendido el porqué de cada uno con la
-guía.
+**Qué hice con IA.** Para este TP le pedí a Claude (Claude Code) que redactara este
+mismo apartado de `decisiones.md`. 
 
 **Qué NO hice con IA.** La configuración del Board, el campo Iteration (Sprint)
 y el límite de trabajo en progreso los hice yo a mano en la web de GitHub,

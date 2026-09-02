@@ -426,3 +426,76 @@ json --jq '.public'`. Puedo reproducir y explicar cada comando en la defensa:
 qué hace, por qué esa forma y no otra, y qué pasa si algo de esto falla (por
 ejemplo, qué pasaría si el PR apuntara a una rama que no es `main`, o si me
 olvidara el `--label`).
+
+---
+
+# Nota sobre el historial del repositorio y los tags
+
+La cátedra pide que, si se corrige un TP ya etiquetado, se mueva el tag y se
+documente acá el porqué. Es el caso de este repositorio: moví los tres tags, y el
+motivo es un error mío. Lo dejo con SHAs y fechas para que se pueda verificar.
+
+## 1. Qué pasó
+
+- **Hice un `git push --force` sobre `main`.** El 2026-09-02 a las 14:23:57 UTC
+  la punta pasó de `dd12e4b` a `f75a856` sin ser un avance: reescribí la
+  historia en vez de extenderla. Fue la salida rápida de un `main` local
+  divergido — el mismo error de fondo que ya está documentado en el TP1 (§2).
+- **Después recreé los tres tags sobre el commit final.** `v1.0.0`, `v2.0.0` y
+  `v3.0.0` apuntan hoy los tres a `05f8a69` (el merge del PR #27) y comparten
+  `taggerdate` al segundo (2026-09-02 13:28:46 -0300): los hice de nuevo en la
+  misma tanda, después del force-push.
+
+## 2. Qué se perdió y qué no
+
+- **No se perdió trabajo.** El contenido de los tres TPs está completo en la
+  punta de `main`.
+- **Sí se perdieron los merges originales** de los PR #1 a #18 (`5126806`,
+  `2a39898`, `8854d31`, `464124d`, `4f823c5`, `d5483be`, `df61c14`, `b85e8a1`,
+  `dd12e4b`): ya no son alcanzables desde `HEAD`. En su lugar hay gemelos con el
+  mismo subject y la misma fecha de autor, pero distinto SHA y distinto árbol
+  (`464124d` → `2a78d56`, `4f823c5` → `23016ed`). El merge del PR #17
+  (`b85e8a1`) ni siquiera tiene gemelo.
+- **Se perdió la trazabilidad de este archivo.** En la historia reescrita
+  `decisiones.md` aparece recién en `4f0cbe1` (2026-09-02 12:09:58), pero los
+  merges originales ya lo traían (`464124d`: 56 líneas, `4f823c5`: 190,
+  `b85e8a1`: 200). El archivo sí se fue escribiendo TP a TP; lo que borró esa
+  evidencia de los commits previos fue la reescritura, no una omisión al
+  entregar.
+
+## 3. Por qué los tres tags están en el mismo commit
+
+Porque `05f8a69` es el único punto de la historia actual que contiene la
+documentación completa de los tres TPs. Etiquetar tres commits distintos habría
+sido más prolijo, pero en la historia nueva ninguno de ellos contiene lo que su
+tag diría contener. Preferí que los tags apunten a algo verificable y explicar
+acá el porqué, antes que dejar tres etiquetas que no se sostienen.
+
+## 4. Dónde está la historia original
+
+- **Tags de respaldo, publicados también en el remoto**:
+  `backup/pr17-decisiones-tp3` → `d5b2828d75fb57e8d5e4eac277f66e4909fac621` y
+  `backup/pr18-prev-force-push` → `dd12e4b355c7211e329587dc63bcd5858ef93d67`.
+  Son tags ligeros y su único propósito es mantener vivos los objetos que
+  quedaron huérfanos, para que no se los lleve el `gc`.
+- **Los Pull Requests cerrados en GitHub**: del #1 al #18 conservan intactas sus
+  fechas, sus diffs y sus commits, porque GitHub los guarda aparte de la rama.
+  Esa es, en los hechos, la línea de tiempo real de las entregas.
+
+## 5. Los releases: `created_at` no es la fecha de publicación
+
+Los tres releases muestran `created_at` = 2026-09-02T16:28:46Z, el mismo segundo
+para los tres, que es el `taggerdate` de los tags nuevos: el `created_at` de un
+release en GitHub refleja la fecha del objeto tag, así que moverlos reescribió
+ese campo. La fecha real de publicación quedó en `published_at`, que no se tocó:
+v1.0.0 el 2026-08-12T18:19:07Z, v2.0.0 el 2026-08-27T19:24:53Z y v3.0.0 el
+2026-08-27T20:00:00Z.
+
+## 6. Estado actual de la protección de `main`
+
+`gh api repos/ivanjalid1/ingsoft3-tp01/branches/main/protection` devuelve hoy
+`allow_force_pushes: false`, `allow_deletions: false` y `enforce_admins: true`:
+la rama no acepta push forzado ni borrado, y la regla me alcanza también a mí
+como dueño del repo — que es la parte que importa, porque el force-push lo hice
+con permisos de admin. No puedo afirmar cómo estaba esa configuración en el
+momento exacto del force-push; lo que está verificado es el estado de hoy.

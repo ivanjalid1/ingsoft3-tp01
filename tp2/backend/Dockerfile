@@ -1,3 +1,21 @@
+# ---------- Etapa 1: install (deps completas + tests) ----------
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+# 1) Solo manifiestos para cachear la capa de dependencias
+COPY package*.json ./
+
+# 2) Instalar TODAS las dependencias (prod + dev) para poder correr tests
+RUN npm ci
+
+# 3) Copiar el código fuente y tests
+COPY . .
+
+# 4) Ejecutar tests — si fallan, la imagen no se construye
+RUN npm test
+
+# ---------- Etapa 2: runtime (solo lo necesario) ----------
 FROM node:20-alpine
 
 # El contenedor NO corre como root. La imagen oficial ya trae el usuario `node`
@@ -10,13 +28,13 @@ RUN mkdir -p /app && chown node:node /app
 WORKDIR /app
 USER node
 
-# 1) Primero solo los manifiestos
+# 1) Solo manifiestos
 COPY --chown=node:node package*.json ./
 
-# 2) Instalar dependencias de producción
+# 2) Instalar solo dependencias de producción (sin devDependencies)
 RUN npm ci --omit=dev
 
-# 3) Recién ahora el código
+# 3) Copiar solo el código fuente (sin tests, sin configs de dev)
 COPY --chown=node:node src/ ./src/
 
 EXPOSE 3000

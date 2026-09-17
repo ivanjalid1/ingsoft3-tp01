@@ -14,3 +14,6 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+
+# notas personales de estudio (no son parte de la entrega)
+defensa-*.md

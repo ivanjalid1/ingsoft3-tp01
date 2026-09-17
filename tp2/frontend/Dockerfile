@@ -7,7 +7,11 @@ RUN npm ci
 COPY . .
 RUN npm run build          # genera /app/dist
 
-# ---------- Etapa 2: runtime ----------
+# ---------- Etapa 2: tests con coverage (parte del build) ----------
+FROM build AS test
+ENTRYPOINT ["npm", "run", "test:ci"]
+
+# ---------- Etapa 3: runtime ----------
 FROM nginx:alpine
 
 COPY --from=build /app/dist /usr/share/nginx/html

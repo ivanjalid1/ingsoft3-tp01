@@ -12,5 +12,16 @@ export default defineConfig({
       '/api': { target: 'http://localhost:3000', changeOrigin: true }
     }
   },
-  test: { environment: 'jsdom', globals: true, setupFiles: './tests/setup.js' }
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './tests/setup.js',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
+      include: ['src/**'],
+      exclude: ['src/main.jsx'],
+      thresholds: { lines: 80, branches: 80 }
+    }
+  }
 });

@@ -28,8 +28,18 @@ describe('Pantalla de productos', () => {
     ])));
   });
 
-  // ── TEST 1 del frontend — Validación ───────────────────────────
-  it('no envía el formulario con precio negativo: muestra el error y no llama a la API', async () => {
+  // ── TEST 1 del frontend — Validación (parametrizado) ────────────
+  // La regla de productoService es "precio > 0", o sea "precio ≤ 0" (o
+  // directamente no-numérico) es inválido. Antes esto eran dos `it` casi
+  // idénticos (uno con -5, otro con el borde exacto 0); acá se cubren esos
+  // mismos casos más uno adicional (texto no numérico) como UN solo test
+  // parametrizado con `it.each`, sin perder ninguna de las combinaciones que
+  // ya se validaban.
+  it.each([
+    ['negativo', '-5'],
+    ['cero (borde exacto entre válido e inválido)', '0'],
+    ['no numérico', 'abc']
+  ])('no envía el formulario con precio %s: muestra el error y no llama a la API', async (_descripcion, precioInvalido) => {
     const usuario = userEvent.setup();
     renderizarProductos();
 
@@ -38,29 +48,7 @@ describe('Pantalla de productos', () => {
     expect(fetch).toHaveBeenCalledTimes(1);
 
     await usuario.type(screen.getByLabelText(/nombre/i), 'Mouse');
-    await usuario.type(screen.getByLabelText(/precio/i), '-5');
-    await usuario.type(screen.getByLabelText(/stock/i), '30');
-    await usuario.click(screen.getByRole('button', { name: /guardar/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/precio debe ser mayor a cero/i);
-    // Lo importante: no hubo un segundo fetch. El POST nunca salió.
-    expect(fetch).toHaveBeenCalledTimes(1);
-  });
-
-  // ── TEST 1 del frontend — Validación (caso límite: precio === 0) ──
-  // La regla de productoService es "precio > 0", o sea "precio ≤ 0" es
-  // inválido. El test de arriba solo prueba -5 (claramente negativo); este
-  // cubre el borde exacto que separa válido de inválido, que es el caso que
-  // de verdad prueba si la condición está bien escrita (`<= 0` vs `< 0`).
-  it('no envía el formulario con precio en cero: muestra el error y no llama a la API', async () => {
-    const usuario = userEvent.setup();
-    renderizarProductos();
-
-    expect(await screen.findByText('Teclado')).toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(1);
-
-    await usuario.type(screen.getByLabelText(/nombre/i), 'Mouse');
-    await usuario.type(screen.getByLabelText(/precio/i), '0');
+    await usuario.type(screen.getByLabelText(/precio/i), precioInvalido);
     await usuario.type(screen.getByLabelText(/stock/i), '30');
     await usuario.click(screen.getByRole('button', { name: /guardar/i }));
 

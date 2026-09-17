@@ -15,7 +15,11 @@ COPY . .
 # 4) Ejecutar tests — si fallan, la imagen no se construye
 RUN npm test
 
-# ---------- Etapa 2: runtime (solo lo necesario) ----------
+# ---------- Etapa 2: tests con coverage (parte del build) ----------
+FROM build AS test
+ENTRYPOINT ["npm", "run", "test:ci"]
+
+# ---------- Etapa 3: runtime (solo lo necesario) ----------
 FROM node:20-alpine
 
 # El contenedor NO corre como root. La imagen oficial ya trae el usuario `node`

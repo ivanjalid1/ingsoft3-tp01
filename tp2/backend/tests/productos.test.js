@@ -26,34 +26,27 @@ describe('POST /api/productos', () => {
     vi.clearAllMocks();
   });
 
-  it('devuelve 400 DATOS_INVALIDOS con precio negativo y no inserta', async () => {
+  // Test parametrizado real (it.each): un mismo caso de prueba —"datos
+  // inválidos rechazados con 400 y sin llegar a insertar"— corrido contra
+  // varias combinaciones de campos fuera de regla. Reemplaza los tres `it`
+  // casi duplicados que había antes (precio negativo / precio en cero /
+  // stock negativo) y suma dos casos más (nombre vacío, stock no entero)
+  // sin perder ninguna regla que ya se validaba.
+  it.each([
+    ['precio negativo', { nombre: 'Mouse', precio: -5, stock: 30 }],
+    ['precio en cero', { nombre: 'Mouse', precio: 0, stock: 30 }],
+    ['stock negativo', { nombre: 'Mouse', precio: 9500.5, stock: -1 }],
+    ['nombre vacío', { nombre: '   ', precio: 9500.5, stock: 30 }],
+    ['stock no entero', { nombre: 'Mouse', precio: 9500.5, stock: 1.5 }]
+  ])('devuelve 400 DATOS_INVALIDOS con %s y no inserta', async (_caso, body) => {
+    // Arrange: cada fila trae un body con exactamente un campo fuera de regla.
+    // Act
     const respuesta = await request(app)
       .post('/api/productos')
       .set('Authorization', `Bearer ${TOKEN}`)
-      .send({ nombre: 'Mouse', precio: -5, stock: 30 });
+      .send(body);
 
-    expect(respuesta.status).toBe(400);
-    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
-    expect(productoModel.crear).not.toHaveBeenCalled();
-  });
-
-  it('devuelve 400 DATOS_INVALIDOS con precio en cero', async () => {
-    const respuesta = await request(app)
-      .post('/api/productos')
-      .set('Authorization', `Bearer ${TOKEN}`)
-      .send({ nombre: 'Mouse', precio: 0, stock: 30 });
-
-    expect(respuesta.status).toBe(400);
-    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
-    expect(productoModel.crear).not.toHaveBeenCalled();
-  });
-
-  it('devuelve 400 DATOS_INVALIDOS con stock negativo', async () => {
-    const respuesta = await request(app)
-      .post('/api/productos')
-      .set('Authorization', `Bearer ${TOKEN}`)
-      .send({ nombre: 'Mouse', precio: 9500.5, stock: -1 });
-
+    // Assert
     expect(respuesta.status).toBe(400);
     expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
     expect(productoModel.crear).not.toHaveBeenCalled();
@@ -79,9 +72,78 @@ describe('POST /api/productos', () => {
   });
 });
 
+describe('GET /api/productos', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('devuelve 200 con los productos activos por defecto', async () => {
+    // Arrange
+    productoModel.listar.mockResolvedValue([
+      { id: 1, nombre: 'Mouse', precio: 9500.5, stock: 30, activo: true }
+    ]);
+
+    // Act
+    const respuesta = await request(app)
+      .get('/api/productos')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    // Assert
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toHaveLength(1);
+    expect(productoModel.listar).toHaveBeenCalledWith(false);
+  });
+
+  it('incluye los inactivos cuando se pide incluir_inactivos=true', async () => {
+    // Arrange
+    productoModel.listar.mockResolvedValue([]);
+
+    // Act
+    const respuesta = await request(app)
+      .get('/api/productos?incluir_inactivos=true')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    // Assert
+    expect(respuesta.status).toBe(200);
+    expect(productoModel.listar).toHaveBeenCalledWith(true);
+  });
+
+  it('devuelve 500 ERROR_INTERNO si el model falla de forma inesperada', async () => {
+    // Arrange
+    productoModel.listar.mockRejectedValue(new Error('conexión caída'));
+
+    // Act
+    const respuesta = await request(app)
+      .get('/api/productos')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    // Assert
+    expect(respuesta.status).toBe(500);
+    expect(respuesta.body.error.code).toBe('ERROR_INTERNO');
+  });
+});
+
 describe('GET /api/productos/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('devuelve 200 con el producto encontrado', async () => {
+    // Arrange
+    productoModel.buscarPorId.mockResolvedValue({
+      id: 3, nombre: 'Mouse', precio: 9500.5, stock: 30, activo: true
+    });
+
+    // Act
+    const respuesta = await request(app)
+      .get('/api/productos/3')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    // Assert
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual({
+      id: 3, nombre: 'Mouse', precio: 9500.5, stock: 30, activo: true
+    });
   });
 
   it('devuelve 404 PRODUCTO_NO_ENCONTRADO si no existe', async () => {
@@ -106,6 +168,67 @@ describe('GET /api/productos/:id', () => {
   });
 });
 
+describe('PUT /api/productos/:id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('actualiza el producto y devuelve 200 cuando los datos son válidos', async () => {
+    // Arrange
+    productoModel.buscarPorId.mockResolvedValue({
+      id: 3, nombre: 'Mouse', precio: 9500.5, stock: 30, activo: true
+    });
+    productoModel.actualizar.mockResolvedValue({
+      id: 3, nombre: 'Mouse Pro', precio: 12000, stock: 20, activo: true
+    });
+
+    // Act
+    const respuesta = await request(app)
+      .put('/api/productos/3')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ nombre: 'Mouse Pro', precio: 12000, stock: 20 });
+
+    // Assert
+    expect(respuesta.status).toBe(200);
+    expect(respuesta.body).toEqual({
+      id: 3, nombre: 'Mouse Pro', precio: 12000, stock: 20, activo: true
+    });
+    expect(productoModel.actualizar).toHaveBeenCalledWith(3, {
+      nombre: 'Mouse Pro', precio: 12000, stock: 20
+    });
+  });
+
+  it('devuelve 404 PRODUCTO_NO_ENCONTRADO al actualizar uno inexistente', async () => {
+    // Arrange
+    productoModel.buscarPorId.mockResolvedValue(null);
+
+    // Act
+    const respuesta = await request(app)
+      .put('/api/productos/99')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ nombre: 'Mouse Pro', precio: 12000, stock: 20 });
+
+    // Assert
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body.error.code).toBe('PRODUCTO_NO_ENCONTRADO');
+    expect(productoModel.actualizar).not.toHaveBeenCalled();
+  });
+
+  it('devuelve 400 DATOS_INVALIDOS al actualizar con precio inválido y no llega al model', async () => {
+    // Arrange / Act
+    const respuesta = await request(app)
+      .put('/api/productos/3')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ nombre: 'Mouse Pro', precio: -1, stock: 20 });
+
+    // Assert
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
+    expect(productoModel.buscarPorId).not.toHaveBeenCalled();
+    expect(productoModel.actualizar).not.toHaveBeenCalled();
+  });
+});
+
 describe('DELETE /api/productos/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -124,5 +247,20 @@ describe('DELETE /api/productos/:id', () => {
     expect(respuesta.status).toBe(200);
     expect(respuesta.body).toEqual({ id: 3, activo: false });
     expect(productoModel.desactivar).toHaveBeenCalledWith(3);
+  });
+
+  it('devuelve 404 PRODUCTO_NO_ENCONTRADO al desactivar uno inexistente', async () => {
+    // Arrange
+    productoModel.buscarPorId.mockResolvedValue(null);
+
+    // Act
+    const respuesta = await request(app)
+      .delete('/api/productos/99')
+      .set('Authorization', `Bearer ${TOKEN}`);
+
+    // Assert
+    expect(respuesta.status).toBe(404);
+    expect(respuesta.body.error.code).toBe('PRODUCTO_NO_ENCONTRADO');
+    expect(productoModel.desactivar).not.toHaveBeenCalled();
   });
 });

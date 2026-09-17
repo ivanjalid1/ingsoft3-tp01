@@ -14,6 +14,13 @@ export default defineConfig({
       DB_NAME: 'erp_test',
       JWT_SECRET: 'secreto-de-test',
       PORT: '3000'
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
+      include: ['src/**'],
+      exclude: ['src/server.js'],
+      thresholds: { lines: 80, branches: 80 }
     }
   }
 });

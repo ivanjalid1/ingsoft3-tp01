@@ -746,3 +746,291 @@ la rama no acepta push forzado ni borrado, y la regla me alcanza también a mí
 como dueño del repo — que es la parte que importa, porque el force-push lo hice
 con permisos de admin. No puedo afirmar cómo estaba esa configuración en el
 momento exacto del force-push; lo que está verificado es el estado de hoy.
+
+---
+
+# Decisiones — TP5 (Testing, coverage y quality gate)
+
+**Guía traducida.** La guía de la cátedra está escrita sobre .NET (xUnit,
+`coverlet`, `ReportGenerator`). Mi stack es Node.js 20 + Express en el backend
+y React + Vite en el frontend, así que todo este apartado usa la columna
+"JS/TS" de esa guía: **Vitest** como test runner y motor de coverage (`v8`) en
+los dos lados, **Supertest** para los tests HTTP del backend y **React Testing
+Library** para los del frontend. El PR de este TP es el #36
+(https://github.com/ivanjalid1/ingsoft3-tp01/pull/36), con CI en verde en la
+corrida https://github.com/ivanjalid1/ingsoft3-tp01/actions/runs/35174806125,
+que publica dos artifacts descargables: `coverage-backend` y
+`coverage-frontend`.
+
+## 1. Números: de dónde salí y a dónde llegué
+
+| | Backend (antes → después) | Frontend (antes → después) |
+|---|---|---|
+| Líneas | 73.45% → **97.23%** | 73.66% → **93.4%** |
+| Ramas | 90.78% → **95.67%** | 79.83% → **87.95%** |
+| Tests | 56 → **111** | 15 → **36** |
+
+Los números "antes" son los que tenía el proyecto viniendo del TP2/TP3, sin que
+nadie hubiera tocado coverage todavía. Los de "después" salen de correr yo
+mismo `npm run test:coverage` en cada carpeta después de escribir la suite
+nueva (la tabla completa del backend está en el punto 5, con la corrida real).
+
+## 2. El umbral: por qué 80% y no otro número
+
+El umbral que dejé configurado en los dos `vitest.config.js`
+(`coverage.thresholds: { lines: 80, branches: 80 }`) es **80% en líneas y 80%
+en ramas, en los dos lados**. La razón que tenía en la cabeza al arrancar era
+la típica: 80% es el estándar razonable para la mayoría de las aplicaciones
+comerciales, el punto medio entre seguridad y velocidad de desarrollo. Pero esa
+razón sola no alcanza para este TP, porque la consigna pide anclar la
+justificación a la medición real del proyecto, no a un número que traigo de
+afuera.
+
+Lo que importa acá es el **orden en que pasaron las cosas**: no ajusté el
+umbral a lo que ya tenía. Primero escribí la suite nueva (modelos del backend
+que estaban en 27-45%, `Ventas.jsx` en el frontend que estaba en 0.86%, los
+casos de error de `ventaService`) y **después** miré el número final —97%/95%
+en el backend, 93%/88% en el frontend— y recién ahí fijé el gate en 80%.
+
+Eso deja un margen real, no cosmético: hoy el proyecto podría perder entre
+**15 y 17 puntos de cobertura** en cualquiera de las dos métricas antes de que
+el gate se dispare. Es intencional: 80% no es "lo que ya tengo menos un
+colchón chico", es un piso que deja crecer el código sin que un PR chico rompa
+el build por una línea sin testear, pero que sigue frenando de verdad una
+regresión grande (borrar un archivo de tests entero, por ejemplo, como
+demuestro en el punto 6).
+
+## 3. Qué excluí de la medición y qué NO excluí a propósito
+
+- **`tp2/backend/src/server.js`**: excluido (`coverage.exclude` en
+  `vitest.config.js`). Es puro bootstrap, `app.listen(...)` y nada más — no
+  hay ninguna regla de negocio que testear ahí, y el arranque real ya lo
+  cubre `env.test.js` invocando el proceso.
+- **`tp2/frontend/src/main.jsx`**: excluido por el mismo motivo. Crea el root
+  de React y monta `<App />`; no tiene lógica propia.
+- **`tp2/backend/src/config/db.js`** (crea el pool de conexión mysql2):
+  **lo evalué y decidí NO excluirlo.** La tentación estaba porque es un
+  archivo de infraestructura, como `server.js`. Pero al correr el coverage ya
+  tenía **100%** con los tests existentes (se lo ejercita indirectamente vía
+  los modelos que lo importan) — no había nada que estuviera "escondiendo" del
+  umbral, así que excluirlo no tenía ningún propósito real, sólo habría sido
+  copiar un patrón sin necesidad.
+- **Ningún modelo del backend** (`src/models/*.js`) se excluyó, a pesar de que
+  antes de esta semana estaban entre 27% y 45% de cobertura. Tienen lógica de
+  verdad: mapeo de filas SQL a objetos (`aItem` en `ventaModel.js`), queries
+  condicionales, el ruteo de conexión en transacciones (`conn ?? pool`) y el
+  `FOR UPDATE` del locking pesimista en las ventas. Se decidió testearlos, no
+  excluirlos.
+- **`tp2/frontend/src/pages/Ventas.jsx`**, mismo criterio: estaba en **0.86%**
+  de cobertura, una página entera sin un solo test. Se le escribió una suite
+  en vez de sacarla de la medición.
+
+## 4. Las tres técnicas pedidas: parametrizado, caso de error, mock
+
+**Backend:**
+
+- **Parametrizado** — `tp2/backend/tests/productos.test.js`, dentro de
+  `describe('POST /api/productos')`:
+  `it.each([...])('devuelve 400 DATOS_INVALIDOS con %s y no inserta', ...)`,
+  con 5 casos: precio negativo, precio en cero, stock negativo, nombre vacío,
+  stock no entero. Antes de este TP este grupo eran tres tests casi idénticos
+  escritos a mano; convertirlos a `it.each` los hizo más fáciles de extender
+  (agregar el quinto caso fue una línea, no un test nuevo copiado y pegado).
+- **Caso de error** — `tp2/backend/tests/ventas.test.js`: `rechaza con 409
+  STOCK_INSUFICIENTE y NO descuenta stock de ningún ítem` y `rechaza con 400
+  DATOS_INVALIDOS un ítem null`.
+- **Mock con verificación de interacción** — `tp2/backend/tests/ventas.test.js`:
+  `crea la venta con 201, calcula el total y descuenta el stock exacto`, que
+  hace `expect(ventaModel.crearCabecera).toHaveBeenCalledWith(conn, 1, 210000)`
+  y `expect(productoModel.descontarStock).toHaveBeenNthCalledWith(...)` — no
+  alcanza con que la respuesta HTTP esté bien, el test verifica que el service
+  llamó a la capa de datos con los argumentos exactos.
+
+**Frontend:**
+
+- **Parametrizado** — `tp2/frontend/tests/productos.test.jsx`:
+  `it.each([...])('no envía el formulario con precio %s: muestra el error y no
+  llama a la API', ...)`, con precio negativo, precio cero (el borde exacto de
+  la regla) y precio no numérico.
+- **Caso de error** — `tp2/frontend/tests/rutaProtegida.test.jsx`: `redirige a
+  /login cuando no hay token en localStorage`.
+- **Mock con verificación de interacción** — `tp2/frontend/tests/clientes.test.jsx`:
+  `con datos válidos sí llama a la API`, que hace
+  `expect(fetch).toHaveBeenCalledTimes(3)` e inspecciona
+  `fetch.mock.calls[1]` para chequear método y body de la llamada real.
+
+## 5. La corrida real de coverage (backend) y el ejercicio de la rama sin cubrir
+
+Corrí `npm run test:coverage` en `tp2/backend` para este mismo apartado y el
+reporte de consola (`v8`, `text`) dio esto:
+
+```
+ Test Files  9 passed (9)
+      Tests  111 passed (111)
+
+File               | % Stmts | % Branch | % Funcs | % Lines
+-------------------|---------|----------|---------|--------
+All files          |   97.23 |    95.67 |   97.14 |   97.23
+ src/config        |      88 |    66.66 |     100 |      88
+  env.js           |   82.85 |    66.66 |     100 |   82.85   Uncovered: 20-25
+```
+
+El archivo con menor cobertura de rama del proyecto es
+`tp2/backend/src/config/env.js`, líneas 20-25:
+
+```js
+if (faltantes.length > 0) {
+  console.error(
+    `[config] Faltan variables de entorno obligatorias: ${faltantes.join(', ')}.\n` +
+    `[config] Copiá .env.example a .env y completalas, o pasalas desde docker-compose.`
+  );
+  process.exit(1);
+}
+```
+
+1. **Qué línea/archivo es:** `src/config/env.js:20-25`, la rama del `if` que
+   se toma cuando falta alguna variable de entorno obligatoria al arrancar el
+   proceso (`console.error` + `process.exit(1)`).
+2. **Qué entrada la recorrería:** arrancar el proceso con al menos una de las
+   siete variables de `REQUERIDAS` (`DB_HOST`, `DB_PORT`, `DB_USER`,
+   `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `PORT`) ausente o vacía en
+   `process.env`.
+3. **Qué decidí hacer y por qué:** no agregar un test nuevo, porque **esta
+   rama ya está probada** — sólo que `v8` no puede verlo. El test `el arranque
+   muere nombrando la variable que falta` (`tests/env.test.js:15-51`) hace
+   exactamente esa entrada: arranca `env.js` con `PORT` faltante vía
+   `execFileSync(process.execPath, [envModulePath], ...)` y confirma
+   `error.status === 1` y que el `stderr` contiene `PORT`. El motivo por el
+   que igual sale "sin cubrir" es que ese arranque corre en un **proceso hijo
+   separado**, y el coverage `v8` que junta Vitest sólo instrumenta el proceso
+   donde corre el test runner — lo que pasa adentro del proceso hijo (que es
+   justamente donde vive el `if`) queda fuera de esa instrumentación. Escribir
+   un segundo test que importe `env.js` en el mismo proceso para "pintar" esas
+   líneas de verde exigiría mockear `process.exit` y `console.error`, lo cual
+   sería **menos** honesto que lo que ya tengo: pasaría el coverage pero
+   dejaría de verificar el comportamiento real (que el proceso efectivamente
+   termina con código 1 y un mensaje útil en stderr). Prefiero un reporte que
+   diga 66.66% de ramas en este archivo puntual y sea cierto, a maquillarlo.
+
+## 6. Verificación del freno: que el gate no sea decorativo
+
+En los dos lados hice la prueba de bajar la cobertura a propósito y confirmar
+que el pipeline la frena, **en local, antes de abrir el PR**:
+
+- **Backend:** deshabilité temporalmente archivos de test enteros (bajando el
+  número de asserts reales sobre el código) y corrí `npm run test:coverage`.
+- **Frontend:** dejé un test saltado (`it.skip`) y subí el threshold para
+  forzar el mismo efecto.
+
+En ambos casos la salida fue el mismo mensaje, con exit code distinto de 0:
+
+```
+ERROR: Coverage for lines (X%) does not meet global threshold (Y%)
+```
+
+Después de confirmar el mensaje y el código de salida, restauré todo (los
+tests deshabilitados y el threshold) y volví a correr para confirmar que
+quedaba verde otra vez antes de commitear.
+
+**Lo que esto demuestra y lo que todavía no.** Esta verificación prueba que el
+umbral de Vitest funciona como gate *localmente* — que el comando
+`test:ci` realmente corta con error si la cobertura cae. Lo que **falta** es
+la demostración *en el pipeline*, con dos PRs reales que muestren el ciclo
+rojo → verde en GitHub Actions: eso es la Tarea 3 del TP y todavía está
+pendiente.
+
+- PR de demo rojo→verde (backend): `[PENDIENTE: agregar link cuando se abra el PR de demo]`
+- PR de demo rojo→verde (frontend): `[PENDIENTE: agregar link cuando se abra el PR de demo]`
+
+## 7. Docker y CI: la etapa `test` y qué extrae el pipeline
+
+Cada Dockerfile (backend y frontend) ganó una etapa intermedia:
+
+```
+FROM build AS test
+ENTRYPOINT ["npm", "run", "test:ci"]
+```
+
+`test:ci` es un script nuevo en los dos `package.json`:
+
+```
+vitest run --coverage --coverage.reportsDirectory=${COVERAGE_DIR:-coverage}
+```
+
+El `${COVERAGE_DIR:-coverage}` existe para que el pipeline pueda extraer el
+reporte por volumen **sin pisar** el `coverage/` que uso en mi máquina cuando
+corro los tests local. `ci.yml` (commit `c5636a2`) construye esa etapa con
+`docker/build-push-action@v7` (`target: test`, `load: true`, porque sin
+`load: true` la imagen queda sólo en el build cache del buildx remoto y
+`docker run` no la encuentra), la corre con:
+
+```
+docker run --rm -e COVERAGE_DIR=/salida/reporte -v "$GITHUB_WORKSPACE/backend-coverage:/salida" backend-test:ci
+```
+
+arma un resumen en `$GITHUB_STEP_SUMMARY` leyendo `coverage-summary.json` (una
+tabla con líneas/ramas/funciones), y publica el reporte completo —incluido el
+HTML navegable— como artifact (`coverage-backend`, `coverage-frontend`) con
+`actions/upload-artifact@v4`. El código de salida de `test:ci` es lo que
+decide si el job pasa: si el umbral no se cumple, `vitest run --coverage`
+termina distinto de 0, el `docker build` de la etapa `test` falla, el step
+falla, y el job —que ya era uno de los dos `required_status_checks` desde el
+TP4— bloquea el merge igual que si hubiera fallado la compilación.
+
+**El bug latente que encontré: `.dockerignore` excluía `tests/`.** Desde el
+TP2, `tp2/backend/.dockerignore` tenía una línea `tests` que excluía toda esa
+carpeta del contexto de build. Eso significa que cualquier `docker build`
+**sin cache** (de cero, como correría en una máquina nueva o el día que
+GitHub desaloje el cache de Actions) iba a fallar el `RUN npm test` de la
+etapa `build` con `No test files found`, porque los archivos de test nunca
+llegaban al contenedor. Nadie lo había pisado porque siempre se buildeaba con
+cache local. Lo corregí sacando esa línea del `.dockerignore` en el mismo
+commit que subió la cobertura (`6d7bc41`).
+
+## 8. Por qué no hizo falta ningún refactor para poder mockear
+
+La guía advierte que puede hacer falta refactorizar el código de producción
+para volverlo mockeable (inyección de dependencias, extraer interfaces). Acá
+**no hizo falta ninguno**, y no porque lo resolviera esta semana: el backend
+ya tenía la capa `models/` separada de `services/` y `controllers/` desde
+antes del TP5, con esta razón dejada explícita en el propio código
+(`src/models/ventaModel.js`, línea 30):
+
+```js
+// ÚNICA puerta al pool para transacciones. Está acá y no en el service
+// porque el service no puede conocer config/db.js: si lo conociera, no se
+// podría mockear la capa de datos y los tests necesitarían MySQL.
+```
+
+Gracias a esa separación previa, `vi.mock('../src/models/ventaModel.js')` (y
+lo mismo para `productoModel`, `clienteModel`, `usuarioModel`) alcanzó
+directamente para testear los services y controllers sin tocar una base de
+datos real. Lo documento como una decisión de diseño que ya estaba tomada y
+que esta semana **pagó dividendos**, no como un refactor nuevo.
+
+## 9. Declaración de uso de IA
+
+**Qué hice con IA.** Usé Claude Code (modelo Sonnet 5) de forma extensiva
+para: instalar y configurar coverage (`@vitest/coverage-v8`) en los dos lados,
+escribir la mayoría de los tests nuevos (los cuatro modelos del backend,
+`Ventas.jsx`, `useRecurso`, `Login` y `AuthContext` del frontend), convertir
+grupos de tests repetidos a `it.each`, modificar los dos Dockerfiles y
+`ci.yml`, y armar los commits y el PR #36.
+
+**Qué NO hice con IA (verificación humana).** Revisé el diff de cada commit
+antes de pushearlo. Confirmé la decisión de dejar el umbral en 80% recién
+después de ver los números reales (97%/95% backend, 93%/88% frontend), no
+antes. Decidí qué excluir de la cobertura, incluyendo revertir la exclusión
+de `db.js` al ver que ya tenía 100% sin necesidad de esconderlo. Confirmé y
+después revertí un cambio no relacionado en `nginx.conf` que había quedado de
+una clase con el profesor y no pertenecía a este TP.
+
+**Cómo lo verifiqué.** Cada assert de los tests que escribió la IA es
+verificable leyendo el archivo de test correspondiente y corriendo
+`npm run test:coverage` en `tp2/backend` o `tp2/frontend` — los números de
+este apartado (111 tests backend, 36 frontend, los porcentajes de la tabla
+del punto 1) salen de correr esos comandos yo mismo, no de la palabra de la
+IA. El mensaje exacto del gate (`ERROR: Coverage for lines (X%) does not meet
+global threshold (Y%)`, punto 6) lo vi en mi propia terminal antes de
+restaurar los archivos. La rama sin cubrir del punto 5 la elegí yo mirando la
+tabla de consola real, no un ejemplo que me haya sugerido la IA.

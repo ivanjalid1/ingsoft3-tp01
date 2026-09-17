@@ -939,8 +939,23 @@ la demostración *en el pipeline*, con dos PRs reales que muestren el ciclo
 rojo → verde en GitHub Actions: eso es la Tarea 3 del TP y todavía está
 pendiente.
 
-- PR de demo rojo→verde (backend): `[PENDIENTE: agregar link cuando se abra el PR de demo]`
-- PR de demo rojo→verde (frontend): `[PENDIENTE: agregar link cuando se abra el PR de demo]`
+- **PR de demo #1 (mergeado) — frontend**: [#38](https://github.com/ivanjalid1/ingsoft3-tp01/pull/38).
+  Agregó `tp2/frontend/src/utils/estadoVenta.js` sin tests → CI se puso rojo
+  por cobertura (corrida roja:
+  [run 35176181433](https://github.com/ivanjalid1/ingsoft3-tp01/actions/runs/35176181433),
+  error `ERROR: Coverage for branches (79.31%) does not meet global threshold
+  (80%)`, con los 36 tests preexistentes en verde) → se agregaron los tests
+  que faltaban → CI verde (corrida verde:
+  [run 35176361800](https://github.com/ivanjalid1/ingsoft3-tp01/actions/runs/35176361800),
+  93.98% líneas / 90.36% ramas) → mergeado.
+- **PR de demo #2 (queda abierto y rojo hasta la defensa, NO se mergea) —
+  backend**: [#39](https://github.com/ivanjalid1/ingsoft3-tp01/pull/39).
+  Agregó `tp2/backend/src/services/descuentoService.js` sin tests → CI en
+  rojo por cobertura (corrida roja:
+  [run 35176989733](https://github.com/ivanjalid1/ingsoft3-tp01/actions/runs/35176989733),
+  error `ERROR: Coverage for lines (76.7%) does not meet global threshold
+  (80%)`, con los 111 tests preexistentes en verde y el job de frontend sin
+  tocar, en verde). Este PR se deja así, sin arreglar, hasta la defensa oral.
 
 ## 7. Docker y CI: la etapa `test` y qué extrae el pipeline
 

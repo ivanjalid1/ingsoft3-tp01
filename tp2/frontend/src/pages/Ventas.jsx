@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 import { get, post } from '../api/client.js';
 import { formatearMonto } from '../utils/formato.js';
+import { clasificarAntiguedadVenta, colorBadgeEstadoVenta, requiereSeguimientoUrgente } from '../utils/estadoVenta.js';
+
+const ETIQUETA_ANTIGUEDAD = {
+  desconocido: 'Sin fecha',
+  anulada: 'Anulada',
+  futura: 'Programada',
+  reciente: 'Reciente',
+  'esta-semana': 'Esta semana',
+  'este-mes': 'Este mes',
+  trimestre: 'Trimestre',
+  vieja: 'Sin seguimiento'
+};
 
 export default function Ventas() {
   const [ventas, setVentas] = useState([]);
@@ -69,11 +81,15 @@ export default function Ventas() {
                   <th className="num-header">Fecha</th>
                   <th className="num-header">Total</th>
                   <th>Estado</th>
+                  <th>Antigüedad</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {ventas.map((venta) => (
+                {ventas.map((venta) => {
+                  const antiguedad = clasificarAntiguedadVenta(venta);
+                  const urgente = requiereSeguimientoUrgente(antiguedad, venta.total);
+                  return (
                   <tr key={venta.id} className={venta.estado === 'anulada' ? 'venta--anulada' : undefined}>
                     <td className="num">{venta.id}</td>
                     <td>{venta.cliente_nombre}</td>
@@ -81,6 +97,10 @@ export default function Ventas() {
                     <td className="num">{formatearMonto(venta.total)}</td>
                     <td>
                       <span className={`pill pill--${venta.estado}`}>{venta.estado}</span>
+                    </td>
+                    <td>
+                      <span className={colorBadgeEstadoVenta(antiguedad)}>{ETIQUETA_ANTIGUEDAD[antiguedad]}</span>
+                      {urgente && <span className="badge badge--rojo" title="Requiere seguimiento urgente"> ⚠</span>}
                     </td>
                     <td>
                       <div className="acciones-form">
@@ -98,7 +118,8 @@ export default function Ventas() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

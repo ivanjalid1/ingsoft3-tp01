@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
 import App from './App.jsx';
+import { iniciarSentry } from './observabilidad.js';
 
 // Fuentes empaquetadas localmente (npm), no vía <link> a Google Fonts: la
 // app tiene que arrancar sin internet dentro del contenedor. Solo se traen
@@ -17,6 +18,9 @@ import '@fontsource/ibm-plex-mono/latin-400.css';
 import '@fontsource/ibm-plex-mono/latin-500.css';
 import '@fontsource/ibm-plex-mono/latin-600.css';
 import './estilos.css';
+
+// TP9 · antes de renderizar, para que Sentry vea la carga y cualquier error.
+iniciarSentry();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

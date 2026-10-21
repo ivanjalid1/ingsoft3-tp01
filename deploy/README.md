@@ -123,14 +123,18 @@ Azure → VPS deja de usarse. Los builds siguen en `ubuntu-latest`.
 sudo useradd -m -s /bin/bash tp6runner
 sudo -u tp6runner bash -c 'mkdir ~/actions-runner && cd ~/actions-runner &&
   curl -fsSL https://github.com/actions/runner/releases/download/v<ver>/actions-runner-linux-x64-<ver>.tar.gz | tar xz &&
-  ./config.sh --unattended --url https://github.com/<owner>/<repo> --token <token>     --name tp6-vps --labels tp6-vps --no-default-labels'
+  ./config.sh --unattended --url https://github.com/<owner>/<repo> --token <token>     --name tp6-vps --labels self-hosted,tp6-vps --no-default-labels'
 cd /home/tp6runner/actions-runner && sudo ./svc.sh install tp6runner && sudo ./svc.sh start
 sudo npx -y playwright@<versión-del-package.json> install-deps chromium
 gh api -X PUT repos/<owner>/<repo>/actions/permissions/fork-pr-contributor-approval   -f approval_policy=all_external_contributors
 ```
 
 Si el runner está caído, los jobs quedan en *Queued* (no fallan): revisar
-`systemctl status actions.runner.*tp6-vps*`.
+`systemctl status actions.runner.*tp6-vps*`. Ojo con `--no-default-labels`: saca
+también la etiqueta `self-hosted`, y el workflow la pide (`runs-on:
+[self-hosted, tp6-vps]`); sin ella el job queda en cola para siempre. Si se
+agrega la etiqueta después, hay que cancelar y re-correr: un job ya encolado no
+se reasigna.
 
 ## Seguridad y alternativas
 

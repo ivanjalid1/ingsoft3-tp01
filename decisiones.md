@@ -1,5 +1,5 @@
-> **Enlaces rápidos:** [Enlaces del TP6](#enlaces-de-este-tp) · [Enlaces del TP7](#enlaces-del-tp7)
-> (cada TP tiene su bloque de enlaces al principio de su sección; las secciones están en orden, TP1 → TP7).
+> **Enlaces rápidos:** [Enlaces del TP6](#enlaces-de-este-tp) · [Enlaces del TP7](#enlaces-del-tp7) · [Enlaces del TP8](#enlaces-del-tp8)
+> (cada TP tiene su bloque de enlaces al principio de su sección; las secciones están en orden, TP1 → TP8).
 
 # Decisiones — TP1
 
@@ -1772,3 +1772,91 @@ reproduje con un cambio real en la app, no con un test forzado a fallar. Revisé
 los dos reportes de esa corrida, y antes de dar por bueno el unitario nuevo del
 PR #53 comprobé que falla con el código roto. Además, `/api/health` de QA y PROD
 devuelve los shas que menciono arriba.
+
+# Decisiones — TP8 (Infraestructura como Código)
+
+## Enlaces del TP8
+
+- La infraestructura: [`infra/`](https://github.com/ivanjalid1/ingsoft3-tp01/tree/main/infra)
+  (cómo se corre: [`infra/README.md`](infra/README.md)).
+- Release: [`v8.0.0`](https://github.com/ivanjalid1/ingsoft3-tp01/releases/tag/v8.0.0).
+
+## 1. Riel y versiones
+
+**Plan C: Terraform 1.15.8 + provider Docker, en el Docker local.** Mi app usa
+MySQL y desde el TP6 corre en mi VPS con compose, no en Neon ni en Render, así
+que el riel canónico no aplica.
+
+Providers fijados por versión exacta, con el `.terraform.lock.hcl` commiteado
+(hashes para Windows, Linux y macOS):
+
+- `kreuzwerker/docker` **4.6.0**
+- `hashicorp/random` **3.9.1**, para generar las contraseñas.
+
+**Preprod nace en mi notebook, no en el VPS.** Era lo más simple y lo más
+seguro para la defensa: no depende de que la red de la facultad deje salir el
+puerto 22 y no toca el VPS que comparto con otros proyectos. La contra: no está
+en la misma máquina que PROD ni tiene URL pública (`http://localhost:3630`).
+
+**Cómo cumple el contrato:**
+
+- **Entorno nuevo:** red, volumen, MySQL, backend y frontend, con nombres
+  `tp8-preprod-*`. QA y PROD no se declaran, no se importan y no se tocan.
+  Antes y después de cada ciclo comprobé con `/api/health` que siguen en el
+  mismo sha.
+- **Imagen del TP7:** `sha-b4630600…`, la de `v7.0.0`, la misma que corre PROD.
+- **Sin credenciales en el HCL ni en un tfvars:** las tres contraseñas (root de
+  MySQL, usuario de la app y `JWT_SECRET`) las genera `random_password` y viajan
+  sólo por el estado. Por eso `terraform apply` no pide nada.
+- **Se derivan, no se copian:** `DB_HOST` es `docker_container.db.name`, la
+  contraseña es `random_password.db_app.result` y la `BACKEND_URL` del front
+  sale de `docker_container.backend.name`. El esquema se carga del mismo
+  `tp2/backend/db/init.sql` del repo (bloque `upload`), no de una copia.
+- **Estado:** `infra/terraform.tfstate`, local y en el `.gitignore` desde antes
+  del primer apply. Comprobé que adentro están las tres contraseñas en texto
+  plano.
+
+**Lo que medí:**
+
+| Paso | Resultado |
+|---|---|
+| `plan` inicial | `11 to add, 0 to change, 0 to destroy` |
+| `apply` | 56 s; `/api/health` con el sha de v7, `/api/health/db` 200, front 200, login y alta de un cliente |
+| 2º `plan` | `No changes` (después de corregir lo del punto 2) |
+| Drift: `docker rm -f` del backend | El plan lo detectó (`1 to add`) y el `apply` lo reparó |
+| Contenedor `tp8-intruso` creado a mano en la red de preprod | El plan siguió en `No changes`: no lo ve |
+| `prevent_destroy` en el volumen | `Error: Instance cannot be destroyed` |
+| `destroy` | 10 s, 11 recursos, orden inverso al grafo: front → backend → db → volumen y red |
+| `apply` de nuevo | 60 s; mismo sha, base nueva (el cliente de la vuelta anterior ya no estaba) |
+
+## 2. Problemas y cómo los resolví
+
+- **El segundo `plan` no daba «No changes».** Proponía
+  `start_period = "1m0s" -> "60s"` en el healthcheck de la base: Docker guarda
+  la duración normalizada y el provider la compara como texto. Era un falso
+  cambio que iba a aparecer en cada plan. Lo arreglé escribiendo `"1m0s"`. La
+  idempotencia también depende de cómo el provider compara los valores, no sólo
+  del código.
+- **«Arrancó ≠ está listo».** El backend no puede arrancar antes de que MySQL
+  termine de correr `init.sql`. Puse el mismo healthcheck del compose con
+  `wait = true`: el `apply` espera a que la base dé *healthy* antes de crear el
+  backend. Por eso tarda ~1 minuto y no 10 segundos.
+- **El pipe de Docker en Windows.** El provider por defecto busca
+  `unix:///var/run/docker.sock`. Lo dejé como variable (`docker_host`) con el
+  pipe de Docker Desktop por defecto, así en Linux se pasa por `-var`.
+- **Lo que sigue siendo artesanal:** QA y PROD (compose + `.env` a mano en el
+  VPS, nginx y certbot), y el runner self-hosted. El `plan` de `infra/` no dice
+  nada de ellos.
+
+## 3. Declaración de uso de IA
+
+**Qué hice con IA.** Usé Claude Code (Anthropic) para escribir el HCL de
+`infra/`, para correr y medir el ciclo y para este texto.
+
+**Qué NO hice con IA.** Elegí el plan C y dónde corre preprod.
+
+**Cómo lo verifiqué.** Corrí el ciclo completo (`plan → apply → plan →
+drift → destroy → apply`) y leí cada plan. Probé preprod como entorno: login,
+alta de un cliente en su base y `/api/health/db`, no sólo que los contenedores
+existan. Antes de la defensa ensayo leer el plan en voz alta.
+

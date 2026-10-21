@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import { esHealthCheck } from './utils/esHealthCheck.js';
 
 // TP9 · Sentry: errores, tiempos y uso del backend.
 //
@@ -14,5 +15,12 @@ Sentry.init({
   environment: process.env.SENTRY_ENVIRONMENT || 'local',
   release: process.env.APP_VERSION || undefined, // el sha que corre, el mismo de /api/health
   tracesSampleRate: 1.0,                         // medir todos los pedidos: el tráfico es chico
-  sendDefaultPii: false                          // no mandar IPs ni headers de los usuarios
+  sendDefaultPii: false,                         // no mandar IPs ni headers de los usuarios
+  integrations: [
+    // Los health checks NO se miden: el healthcheck de Docker le pega a
+    // /api/health cada 5 s (más el monitor externo), y en Sentry tapaban el uso
+    // real: la "operación más usada" era el healthcheck. Los errores se siguen
+    // reportando; lo que se ignora es sólo la traza de esos pedidos.
+    Sentry.httpIntegration({ ignoreIncomingRequests: esHealthCheck })
+  ]
 });

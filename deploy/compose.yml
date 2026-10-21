@@ -62,6 +62,9 @@ services:
       # Lo devuelve /api/health: el smoke test del pipeline compara contra el
       # sha que mandó a desplegar, para no dar verde contra la versión vieja.
       APP_VERSION: ${IMAGE_TAG}
+      # TP9 · Sentry: SOLO el .env de PROD los define. Vacío (QA) = SDK apagado.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-}
     depends_on:
       db:
         condition: service_healthy

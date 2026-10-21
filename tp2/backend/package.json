@@ -21,7 +21,7 @@
     "mysql2": "^3.24.6"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/coverage-v8": "^5.0.5",
     "supertest": "^7.0.0",
     "vitest": "^2.1.9"
   }

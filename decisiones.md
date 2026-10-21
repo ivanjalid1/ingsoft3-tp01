@@ -1668,8 +1668,24 @@ sí tuve fueron **cortes de red transitorios** entre algunos runners de GitHub
   el corte está antes, en el proveedor o en la ruta, y no en mi firewall ni en
   la app: confirma la hipótesis. No la re-corrí porque sólo cambiaba
   documentación y re-correrla me habría vuelto a pedir aprobación para PROD.
+- En la corrida [`37853945664`](https://github.com/ivanjalid1/ingsoft3-tp01/actions/runs/37853945664)
+  (merge del PR #56) el deploy a QA agotó los 4 reintentos de SSH desde la IP
+  `20.127.238.138`, que tampoco aparece en `auth.log` ni en el kernel del VPS.
+  Revisé que no fuera algo mío: UFW permite el 22 desde cualquier lado, no hay
+  listas de bloqueo, fail2ban no está activo y la misma key entró ese día desde
+  otras 5 IPs de Azure. Reintentar no sirve porque el job conserva la IP.
 
-**Mitigaciones:**
+**Solución de fondo: runner self-hosted en el VPS.** Los jobs que hablan con el
+VPS (`deploy-qa`, `integracion`, `e2e`, `deploy-prod` y el rollback) pasaron a
+`runs-on: [self-hosted, tp6-vps]`. El runner abre él la conexión saliente a
+GitHub, así que la ruta Azure → VPS que se cortaba deja de usarse. Corre con un
+usuario propio (`tp6runner`) sin sudo ni grupo `docker`: para desplegar sigue
+entrando por SSH con la key del environment y el comando forzado, así que el
+límite "cada key despliega un solo entorno" no cambia. Como el repo es público,
+activé que ningún workflow de un fork corra sin mi aprobación. Detalle en
+`deploy/README.md`.
+
+**Mitigaciones (siguen, para fallos que no son de red):**
 
 - `navigationTimeout: 20s`: una navegación colgada falla rápido, y el reintento
   entra dentro del timeout del test.

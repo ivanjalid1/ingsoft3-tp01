@@ -160,9 +160,17 @@ jobs:
   # needs + if = cadena con compuertas: solo corre en push a main y solo si los
   # dos builds (tests + coverage + publicación de imagen) terminaron en verde.
   # En un PR este job aparece como "skipped": no despliega nada sin merge.
+  #
+  # Runner: los jobs que hablan con el VPS (deploy-qa, integracion, e2e,
+  # deploy-prod y el rollback) corren en un runner self-hosted INSTALADO EN EL
+  # PROPIO VPS (etiqueta tp6-vps). Desde los runners de GitHub algunas IPs de
+  # Azure no llegaban nunca al VPS (4 cortes en TP7: timeouts de SSH/HTTPS sin
+  # rastro en los logs del servidor). El runner self-hosted sale él a buscar
+  # los trabajos a GitHub (conexión saliente), así que esa ruta deja de existir.
+  # Los builds siguen en ubuntu-latest: no tocan el VPS y corren también en PRs.
   # ---------------------------------------------------------------------------
   deploy-qa:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tp6-vps]   # runner en el propio VPS (ver deploy/README.md)
     needs: [build-backend, build-frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # environment qa: los secrets/vars de este job salen del entorno "qa" (la key
@@ -222,7 +230,7 @@ jobs:
   # artifact de cada job.
   # ---------------------------------------------------------------------------
   integracion:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tp6-vps]   # runner en el propio VPS (ver deploy/README.md)
     needs: deploy-qa
     timeout-minutes: 15
     permissions:
@@ -287,7 +295,7 @@ jobs:
           if-no-files-found: ignore
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tp6-vps]   # runner en el propio VPS (ver deploy/README.md)
     needs: integracion
     timeout-minutes: 20
     permissions:
@@ -309,10 +317,11 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
-      # Solo Chromium (+ las librerías del sistema que necesita): es el único
-      # proyecto definido en playwright.config.js.
+      # Solo Chromium: es el único proyecto definido en playwright.config.js.
+      # Sin --with-deps: el runner del VPS no tiene sudo; las librerías del
+      # sistema se instalaron una vez como root (deploy/README.md).
       - name: Instalar Chromium para Playwright
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       # Igual que en integracion: si QA no responde desde ESTE runner, cortamos
       # con un mensaje claro. La IP queda en el log para buscarla en los logs del
@@ -365,7 +374,7 @@ jobs:
   # bien en QA y pasó las pruebas contra QA.
   # ---------------------------------------------------------------------------
   deploy-prod:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tp6-vps]   # runner en el propio VPS (ver deploy/README.md)
     needs: e2e
     # environment production: tiene "required reviewers", así que el workflow se
     # PAUSA acá hasta que alguien autorizado apruebe en la pestaña Actions. Recién

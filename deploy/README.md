@@ -90,6 +90,48 @@ Para verificar que no divergieron: `sha256sum` de los dos lados tiene que dar
 igual. `compose.yml` e `init.sql` no tienen este problema: se bajan del sha en
 cada deploy, así que un rollback usa los del commit al que vuelve.
 
+## Runner self-hosted en el VPS (desde TP7)
+
+Los jobs que hablan con el VPS (`deploy-qa`, `integracion`, `e2e`,
+`deploy-prod`, `rollback-prod`) corren con `runs-on: [self-hosted, tp6-vps]`.
+
+**Por qué:** desde los runners de GitHub hubo 4 cortes (timeouts de SSH y de
+HTTPS) en los que la IP del runner **no aparecía en ningún log del VPS**: los
+paquetes se perdían antes de llegar (red de Azure ↔ Hostinger). Reintentar no
+sirve porque el runner mantiene la misma IP todo el job. El runner self-hosted
+abre él la conexión **saliente** a GitHub para pedir trabajos, así que la ruta
+Azure → VPS deja de usarse. Los builds siguen en `ubuntu-latest`.
+
+**Cómo está aislado:**
+
+- Usuario propio `tp6runner`: **sin sudo y fuera del grupo `docker`**. No puede
+  tocar contenedores; para desplegar hace lo mismo que antes, SSH a
+  `tp6deploy@<vps>` con la key del environment, y el comando forzado sigue
+  siendo la única puerta (cada key → un entorno, entrada = un sha).
+- Repo público → riesgo de que un PR de un fork cambie el `runs-on` y ejecute
+  código en el VPS. Mitigación: *Settings → Actions → Approval for running fork
+  pull request workflows* = **todos los contribuidores externos** (ningún
+  workflow de un fork corre sin que el dueño lo apruebe). Igual, ningún job de
+  PR usa este runner.
+- Las librerías de sistema de Chromium se instalaron una sola vez como root
+  (`npx playwright install-deps chromium`); el job sólo baja el navegador.
+
+**Instalación** (versión y token: `gh api repos/actions/runner/releases/latest`,
+`gh api -X POST repos/<owner>/<repo>/actions/runners/registration-token`):
+
+```bash
+sudo useradd -m -s /bin/bash tp6runner
+sudo -u tp6runner bash -c 'mkdir ~/actions-runner && cd ~/actions-runner &&
+  curl -fsSL https://github.com/actions/runner/releases/download/v<ver>/actions-runner-linux-x64-<ver>.tar.gz | tar xz &&
+  ./config.sh --unattended --url https://github.com/<owner>/<repo> --token <token>     --name tp6-vps --labels tp6-vps --no-default-labels'
+cd /home/tp6runner/actions-runner && sudo ./svc.sh install tp6runner && sudo ./svc.sh start
+sudo npx -y playwright@<versión-del-package.json> install-deps chromium
+gh api -X PUT repos/<owner>/<repo>/actions/permissions/fork-pr-contributor-approval   -f approval_policy=all_external_contributors
+```
+
+Si el runner está caído, los jobs quedan en *Queued* (no fallan): revisar
+`systemctl status actions.runner.*tp6-vps*`.
+
 ## Seguridad y alternativas
 
 **Lo que esto no resuelve (dicho honestamente):** `tp6deploy` está en el grupo

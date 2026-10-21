@@ -19,7 +19,7 @@ on:
 
 jobs:
   rollback-prod:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tp6-vps]   # runner en el propio VPS (ver deploy/README.md)
     # Mismo environment que deploy-prod: también pide aprobación y usa la key de
     # PROD (la única que puede desplegar PROD en el VPS).
     environment:

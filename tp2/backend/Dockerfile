@@ -43,4 +43,4 @@ COPY --chown=node:node src/ ./src/
 
 EXPOSE 3000
 
-CMD ["node", "src/server.js"]
+CMD ["node", "--import", "./src/instrument.js", "src/server.js"]

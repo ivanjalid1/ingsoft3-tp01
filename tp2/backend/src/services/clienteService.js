@@ -5,7 +5,13 @@ import { validarId } from './validaciones.js';
 // Validación deliberadamente simple: hay un @, hay un punto después y no hay
 // espacios. Validar emails con una regex "completa" es un pozo sin fondo;
 // la verificación real de un email es mandarle un mail.
-const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//
+// TP9 · CodeQL (js/polynomial-redos): la versión anterior,
+// /^[^\s@]+@[^\s@]+\.[^\s@]+$/, dejaba que el punto lo tomara cualquiera de
+// los dos [^\s@]+ del dominio; con un email de miles de puntos el motor probaba
+// cada partición (tiempo polinomial) y bloqueaba el event loop. Ahora cada
+// parte del dominio excluye el punto: hay una sola forma de partir el texto.
+const RE_EMAIL = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
 function validarDatos({ nombre, email }) {
   if (typeof nombre !== 'string' || nombre.trim() === '') {

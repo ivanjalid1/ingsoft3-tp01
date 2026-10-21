@@ -33,6 +33,33 @@ describe('POST /api/clientes', () => {
     vi.clearAllMocks();
   });
 
+  // TP9 · regresión del hallazgo de CodeQL js/polynomial-redos: con la regex
+  // vieja este email tardaba ~1 s en validarse (bloqueando el event loop).
+  it('rechaza rápido un email armado para ReDoS (miles de puntos)', async () => {
+    const malicioso = 'a@' + '.'.repeat(30000) + '@';
+
+    const inicio = Date.now();
+    const respuesta = await request(app)
+      .post('/api/clientes')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ nombre: 'X', email: malicioso });
+
+    expect(respuesta.status).toBe(400);
+    expect(respuesta.body.error.code).toBe('DATOS_INVALIDOS');
+    expect(Date.now() - inicio).toBeLessThan(500);
+    expect(clienteModel.crear).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un dominio con puntos seguidos (a@b..c)', async () => {
+    const respuesta = await request(app)
+      .post('/api/clientes')
+      .set('Authorization', `Bearer ${TOKEN}`)
+      .send({ nombre: 'X', email: 'a@b..c' });
+
+    expect(respuesta.status).toBe(400);
+    expect(clienteModel.crear).not.toHaveBeenCalled();
+  });
+
   // ── TEST 7 del TP5 — Restricción (unicidad) ────────────────────
   it('devuelve 409 EMAIL_DUPLICADO cuando el email ya existe y no inserta', async () => {
     clienteModel.buscarPorEmail.mockResolvedValue(CLIENTE_DEMO);

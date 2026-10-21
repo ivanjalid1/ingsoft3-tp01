@@ -56,7 +56,7 @@ jobs:
           " >> $GITHUB_STEP_SUMMARY
 
       - name: Publicar coverage del backend
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: coverage-backend
@@ -130,7 +130,7 @@ jobs:
           " >> $GITHUB_STEP_SUMMARY
 
       - name: Publicar coverage del frontend
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: coverage-frontend
@@ -285,7 +285,7 @@ jobs:
           " >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar reporte de Playwright (integración)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-integracion
@@ -355,7 +355,7 @@ jobs:
           " >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar reporte de Playwright (e2e)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-e2e

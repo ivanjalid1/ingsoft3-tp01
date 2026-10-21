@@ -1,0 +1,27 @@
+# TP9 · Dependabot: PRs semanales con las versiones nuevas de las dependencias.
+# Las actualizaciones de SEGURIDAD (cuando sale un CVE) las abre igual, sin
+# esperar al lunes: eso se prende en Settings → Advanced Security.
+# Cada PR pasa por el mismo CI que cualquier cambio (tests, coverage, gate).
+version: 2
+updates:
+  - package-ecosystem: "npm"             # backend (Express)
+    directory: "/tp2/backend"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "npm"             # frontend (React + Vite)
+    directory: "/tp2/frontend"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "github-actions"  # las actions del pipeline también son dependencias
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "docker"          # imágenes base de los Dockerfile (node, nginx)
+    directories:
+      - "/tp2/backend"
+      - "/tp2/frontend"
+    schedule:
+      interval: "weekly"

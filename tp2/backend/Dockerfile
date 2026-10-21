@@ -1,5 +1,5 @@
 # ---------- Etapa 1: install (deps completas + tests) ----------
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ FROM build AS test
 ENTRYPOINT ["npm", "run", "test:ci"]
 
 # ---------- Etapa 3: runtime (solo lo necesario) ----------
-FROM node:20-alpine
+FROM node:26-alpine
 
 # El contenedor NO corre como root. La imagen oficial ya trae el usuario `node`
 # (uid 1000), así que no hace falta crear ninguno: alcanza con que /app sea suyo

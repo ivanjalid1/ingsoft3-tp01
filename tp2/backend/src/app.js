@@ -15,13 +15,6 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// TP9 · TEMPORAL: endpoint que falla a propósito, para ver un error llegar a
-// Sentry. Va antes de /api (que pide token) para poder llamarlo desde el
-// navegador. Se saca al cerrar el práctico.
-app.get('/api/falla', () => {
-  throw new Error('Falla de prueba del TP9');
-});
-
 app.use('/api', routes);
 
 // 404 para cualquier ruta que no exista. No arma el JSON acá: delega en

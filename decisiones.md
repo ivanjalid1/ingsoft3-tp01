@@ -1,5 +1,5 @@
-> **Enlaces rápidos:** [Enlaces del TP6](#enlaces-de-este-tp) · [Enlaces del TP7](#enlaces-del-tp7) · [Enlaces del TP8](#enlaces-del-tp8)
-> (cada TP tiene su bloque de enlaces al principio de su sección; las secciones están en orden, TP1 → TP8).
+> **Enlaces rápidos:** [Enlaces del TP6](#enlaces-de-este-tp) · [Enlaces del TP7](#enlaces-del-tp7) · [Enlaces del TP8](#enlaces-del-tp8) · [Enlaces del TP9](#enlaces-del-tp9)
+> (cada TP tiene su bloque de enlaces al principio de su sección; las secciones están en orden, TP1 → TP9).
 
 # Decisiones — TP1
 
@@ -1859,4 +1859,108 @@ en la misma máquina que PROD ni tiene URL pública (`http://localhost:3630`).
 drift → destroy → apply`) y leí cada plan. Probé preprod como entorno: login,
 alta de un cliente en su base y `/api/health/db`, no sólo que los contenedores
 existan. Antes de la defensa ensayo leer el plan en voz alta.
+
+# Decisiones — TP9 (DevSecOps + Observabilidad + Continuous Feedback)
+
+## Enlaces del TP9
+
+- `dependabot.yml`: [`.github/dependabot.yml`](.github/dependabot.yml) (PR #60).
+- PR de Dependabot mergeado: [#78 — `mysql2` 3.23.3 → 3.24.6](https://github.com/ivanjalid1/ingsoft3-tp01/pull/78).
+- CodeQL: *Security → Code scanning*. El hallazgo arreglado está en el PR #83.
+- Sentry en el código: PRs [#83](https://github.com/ivanjalid1/ingsoft3-tp01/pull/83) y [#84](https://github.com/ivanjalid1/ingsoft3-tp01/pull/84).
+- Tarjeta del tablero nacida de Sentry: [issue #85](https://github.com/ivanjalid1/ingsoft3-tp01/issues/85).
+- Release: [`v9.0.0`](https://github.com/ivanjalid1/ingsoft3-tp01/releases/tag/v9.0.0).
+
+## 1. El PR de Dependabot que mergeé
+
+Dependabot quedó activo para cuatro ecosistemas: npm del backend, npm del
+front, GitHub Actions y Docker (las imágenes base de los Dockerfile). Prendí
+las alertas y las actualizaciones de seguridad. Al rato abrió 19 PRs.
+
+Mergeé el **#78: `mysql2` 3.23.3 → 3.24.6**, un *minor* según SemVer. El
+changelog sólo trae arreglos (el terminador de `LOCAL INFILE`, hosts IPv6) y
+mejoras de rendimiento, sin cambios incompatibles.
+
+**Por qué me animé:** es la librería que habla con la base, y justo eso es lo
+que mi cadena prueba de verdad. Los unitarios mockean la base, pero después del
+merge el deploy a QA levanta MySQL real, y la integración y la e2e escriben y
+leen contra esa base. La corrida 39527994094 quedó verde hasta e2e. PROD lo
+recibió con el deploy de Sentry (`7dd6c86`).
+
+**Los que NO mergeé, y por qué:** `express` 5, `react` 19,
+`react-router-dom` 7, `vitest` 5 y `node` 26 son *majors*, con cambios
+incompatibles anunciados. Cada uno pide su propio PR con lectura del changelog,
+no un merge a ciegas.
+
+## 2. Monitor, uso y demoras
+
+**Monitor externo (UptimeRobot):** chequea `https://prod.testingwebapp.site/api/health`
+cada 5 minutos, con pedido HEAD (Express lo contesta solo). Al principio lo
+había apuntado a `/login`, pero eso lo sirve el nginx del front: con el backend
+caído igual da 200. `/api/health` cruza el front y llega al backend.
+
+**La caída provocada** (`docker stop` del backend de PROD):
+
+| Hora (UTC) | Qué pasó |
+|---|---|
+| 02:18:53 | Freno el backend; `/api/health` da 502 |
+| 02:21:17 | UptimeRobot marca **DOWN** (502 Bad Gateway) y manda el mail |
+| 02:25:55 | Arranco el backend; a los 5 s responde 200 |
+| 02:26:22 | UptimeRobot marca **UP** |
+
+**Tiempo de detección: 2 min 24 s.** El techo es el intervalo de 5 minutos.
+Sin el monitor, me habría enterado cuando un usuario se quejara. El UP llegó a
+los 27 s de que volvió, porque no hay *cold start*. Al terminar dejé el monitor
+**pausado**.
+
+**Sentry** (PROD, una hora de uso, *Backend Overview*):
+
+| | Operación | TPM | P50 | P95 |
+|---|---|---|---|---|
+| **Más usada** | `GET /api/clientes` | 0,55 | 7 ms | 33 ms |
+| **Más lenta** | `POST /api/auth/login` | 0,07 | 118 ms | **140 ms** |
+| Error | `GET /api/falla` | — | — | issue "Falla de prueba del TP9" |
+
+El login es lento **a propósito**: `bcrypt.compare` cuesta CPU para frenar la
+fuerza bruta. Pero es el mismo endpoint que CodeQL marca por no limitar
+intentos. Con eso abrí la tarjeta del tablero (issue #85).
+
+## 3. Problemas, y declaración de IA
+
+- **CodeQL encontró 3 cosas reales.** Las analicé así:
+  - `js/polynomial-redos` en la regex de email (**OWASP A06**, diseño inseguro
+    / DoS). Es explotable, pero sólo con token: un email de 30.000 puntos tardaba
+    1,1 s por pedido y bloqueaba el event loop. **Lo arreglé** con una regex sin
+    ambigüedad (< 1 ms), más dos tests de regresión que fallan con la vieja.
+  - `js/missing-rate-limiting` en el login (**OWASP A07**, fallas de
+    autenticación). Es real, pero **no lo arreglé en Express**: detrás de los
+    dos nginx el backend ve a todos con la misma IP, así que el límite sería
+    global. El lugar es `limit_req` en el nginx del host. Queda en el issue #85.
+- **El healthcheck tapaba el uso real.** Docker le pega a `/api/health` cada
+  5 s, y en Sentry la "operación más usada" era ésa. Lo excluí del tracing con
+  `ignoreIncomingRequests` (PR #84). Los errores igual se reportan.
+- **Sólo PROD manda datos a Sentry.** El backend lee `SENTRY_DSN` del entorno y
+  ese valor sólo está en el `.env` de PROD; el front decide por el hostname.
+  QA corre la misma imagen, pero sin DSN, así que la integración y la e2e del
+  pipeline no ensucian las métricas.
+- **El DSN del front está en el código, y no es un secreto:** sólo sirve para
+  enviar eventos, no para leerlos, y viaja igual en el JavaScript que baja el
+  navegador.
+- **Lo que cada pieza NO mira:**
+  - El push protection sólo reconoce formatos conocidos de credenciales; una
+    contraseña inventada pasa. Por eso los `.env` siguen fuera del repo.
+  - Dependabot no ve fallas de mi código; para eso está CodeQL.
+  - CodeQL no ve la configuración del VPS ni de nginx.
+  - El monitor sólo sabe si `/api/health` responde; para lo que falla o tarda
+    adentro está Sentry.
+- **Al cerrar** saqué el endpoint temporal `/api/falla` y su test.
+
+**IA.** Usé Claude Code (Anthropic) para configurar Dependabot, CodeQL y
+Sentry, analizar los hallazgos, provocar y medir la caída, y escribir este
+texto. **Cómo lo verifiqué:**
+- La regex: tests que fallan con la versión vieja y medición del tiempo.
+- Sentry: modo debug local para confirmar que las trazas salen, y después los
+  datos en el dashboard de producción.
+- La caída: los tiempos del monitor contra los de mi `docker stop` y
+  `docker start`.
 

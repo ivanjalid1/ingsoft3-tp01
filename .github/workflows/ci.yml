@@ -20,7 +20,7 @@ jobs:
         run: echo "Rama $RAMA · commit $GITHUB_SHA"
 
       - name: Bajar el código al runner
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Preparar el constructor que sabe cachear
         uses: docker/setup-buildx-action@v4
@@ -94,7 +94,7 @@ jobs:
         run: echo "Rama $RAMA · commit $GITHUB_SHA"
 
       - name: Bajar el código al runner
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Preparar el constructor que sabe cachear
         uses: docker/setup-buildx-action@v4
@@ -185,7 +185,7 @@ jobs:
       # La acción compuesta vive en el repo: hay que bajarla primero. Alcanza con
       # .github (sparse): este job no construye nada, solo despliega imágenes.
       - name: Bajar la acción de despliegue
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github
 
@@ -240,7 +240,7 @@ jobs:
         working-directory: tp2/frontend
     steps:
       - name: Bajar el código al runner
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Preparar Node 22 con cache de npm
         uses: actions/setup-node@v6
@@ -305,7 +305,7 @@ jobs:
         working-directory: tp2/frontend
     steps:
       - name: Bajar el código al runner
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Preparar Node 22 con cache de npm
         uses: actions/setup-node@v6
@@ -395,7 +395,7 @@ jobs:
       contents: read
     steps:
       - name: Bajar la acción de despliegue
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github
 

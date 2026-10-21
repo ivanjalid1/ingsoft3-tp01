@@ -22,3 +22,11 @@ defensa-*.md
 playwright-report/
 test-results/
 blob-report/
+
+# Terraform (TP8): el estado tiene contraseñas en texto plano y NUNCA se versiona.
+# El .terraform.lock.hcl SÍ se commitea (fija versión y hashes de los providers).
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+crash.log

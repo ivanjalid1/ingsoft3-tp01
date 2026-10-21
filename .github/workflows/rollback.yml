@@ -61,7 +61,7 @@ jobs:
           done
 
       - name: Bajar la acción de despliegue
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github
 
